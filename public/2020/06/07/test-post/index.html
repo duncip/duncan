@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+<title>test_post</title>
+
+
+  
+
+
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="alternate" type="application/rss+xml" href="/index.xml" title="Duncan Pastoors">
+
+<link id="dark-mode-theme" rel="stylesheet" href="/css/dark.css" />
+<link rel="stylesheet" href="/fontawesome/css/all.min.css" />
+
+<script src="/js/bundle.js"></script>
+<script src="/js/instantpage.js" type="module" defer></script>
+<meta name="generator" content="Hugo 0.72.0" />
+  </head>
+  <body>
+    
+  
+
+
+
+
+  <header>
+    <nav class="navbar">
+  <div class="nav">
+    
+      <a href="/" class="nav-logo">
+      <img src="/images/icon.png"
+           width="50"
+           height="50"
+           alt="Logo">
+      </a>
+    
+
+    <ul class="nav-links">
+      
+        
+          <li><a href="/tags" name="Tags"><i class="fas fa-tag fa-lg"></i></a></li>
+        
+      
+        
+          <li><a href="/search" name="Search"><i class="fas fa-search fa-lg"></i></a></li>
+        
+      
+    </ul>
+  </div>
+</nav>
+
+    <div class="intro-header">
+      <div class="container">
+        <div class="post-heading">
+          
+            <h1>test_post</h1>
+          
+          
+            <span class="meta-post">
+  <i class="fa fa-calendar-alt"></i>&nbsp;Jun 7, 2020
+  
+</span>
+
+          
+        </div>
+      </div>
+    </div>
+  </header>
+
+
+    
+  <div class="container" role="main">
+    <article class="article" class="blog-post">
+      
+    <pre><code class="language-{r" data-lang="{r">
+## By defult, show code for all chunks in the knitted document,
+## as well as the output. To override for a particular chunk
+## use echo = FALSE in its options.
+knitr::opts_chunk$set(echo = TRUE) 
+
+## Set the default size of figures
+knitr::opts_chunk$set(fig.width=8, fig.height=5)  
+
+## Load the libraries we will be using
+library(gapminder)
+library(here)
+library(socviz)
+library(tidyverse)
+library(nycflights13)
+
+</code></pre><h2 id="questions">Questions</h2>
+<ol>
+<li>Brainstorm at least 5 different ways to assess the typical delay characteristics of a group of flights. Consider the following scenarios:</li>
+</ol>
+<p>i) A flight is 15 minutes early 50% of the time, and 15 minutes late 50% of the time.</p>
+<p>ii) A flight is always 10 minutes late.</p>
+<p>iii) A flight is 30 minutes early 50% of the time, and 30 minutes late 50% of the time.</p>
+<p>iiii) 99% of the time a flight is on time. 1% of the time it’s 2 hours late.</p>
+<p>Which is more important: arrival delay or departure delay?</p>
+<pre><code class="language-{r}" data-lang="{r}">?flights
+</code></pre><p><em>Even though they both give us, as analysts, the insight that we need, the most important variable here is arrival delay. Where departure delay does give us an indication of how delayed a flight is going to be, time can often be made up in the air. Additionally, arrival delay will be more important to our passengers as it is often more costly to them. For example, if someone has a connecting flight they won&rsquo;t care that they departed 20 minutes late if it was made up in the air. If, however, they arrive 20 minutes late there will be an issue.</em></p>
+<ol start="3">
+<li>Come up with another approach that will give you the same output as not_cancelled %&gt;% count(dest) and not_cancelled %&gt;% count(tailnum, wt = distance) (without using count()).</li>
+</ol>
+<pre><code class="language-{r}" data-lang="{r}">not_cancelled &lt;- flights %&gt;%
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+
+not_cancelled %&gt;% count(dest)
+not_cancelled %&gt;% count(tailnum, wt=distance)
+
+not_cancelled %&gt;%
+  group_by(dest) %&gt;%
+  summarise(count = n())
+
+not_cancelled %&gt;%
+  group_by(tailnum) %&gt;%
+  summarise(n = sum(distance)) # OR
+
+not_cancelled %&gt;%
+  group_by(tailnum) %&gt;%
+  tally(distance)
+
+</code></pre><ol start="4">
+<li>Our definition of cancelled flights (is.na(dep_delay) | is.na(arr_delay) ) is slightly suboptimal. Why? Which is the most important column?</li>
+</ol>
+<p><em>If a flight never departs, it also won&rsquo;t arrive. The most important column here is arr_delay as that&rsquo;ll indicate the amount of delay in arrival. We could also check arrival time as there won&rsquo;t be any if it never arrived</em></p>
+<ol start="5">
+<li>Look at the number of cancelled flights per day. Is there a pattern? Is the proportion of cancelled flights related to the average delay?</li>
+</ol>
+<p><em>For the first part of the question we can see that the more flights, the more delays. This is obvious, but an underlying reason could be that congestion is causing flights to leave later. For thes econd part we need to see if the proportion of cancelled flights is related to average delay, so if multiple delays cause flights to be cancelled. Can definitely see the more delay there is, more likely flights are to be cancelled.</em></p>
+<pre><code class="language-{r}" data-lang="{r}">cancelled_per_day &lt;- flights %&gt;%
+  mutate(cancelled = (is.na(arr_delay) | is.na(dep_delay))) %&gt;%
+  group_by(year, month, day) %&gt;%
+  summarise(
+    cancelled_num = sum(cancelled),
+    num_flights = n()
+  )
+
+ggplot(cancelled_per_day) +
+  geom_point(aes(x = num_flights, y = cancelled_num))
+
+# cancelled / avg delay
+cancelled_and_delays &lt;- flights %&gt;%
+  mutate(cancelled = (is.na(arr_delay) | is.na(dep_delay))) %&gt;%
+  group_by(year, month, day) %&gt;% 
+  summarise(
+    prop_cancelled = mean(cancelled),
+    avg_dep_delay = mean(dep_delay, na.rm = TRUE),
+    avg_arr_delay = mean(arr_delay, na.rm = TRUE)
+  )
+
+ggplot(cancelled_and_delays) + 
+  geom_point(aes(x=avg_dep_delay, y=prop_cancelled))
+</code></pre><ol start="6">
+<li>Which carrier has the worst delays? Challenge: can you disentangle the effects of bad airports vs. bad carriers? Why/why not? (Hint: think about flights %&gt;% group_by(carrier, dest) %&gt;% summarise(n()))</li>
+</ol>
+<pre><code class="language-{r}" data-lang="{r}">worst_delays_carrier &lt;- flights %&gt;%
+  group_by(carrier) %&gt;%
+  summarise(
+    avg_dep_delay = mean(dep_delay, na.rm = TRUE),
+    avg_arr_delay = mean(arr_delay, na.rm = TRUE),
+    num_flights = n()
+    ) %&gt;%
+  arrange(desc(num_flights))
+
+worst_delays_carrier
+
+worst_delays_carrier_airport &lt;- flights %&gt;% 
+  group_by(carrier, dest) %&gt;%
+  summarise(
+    avg_dep_delay = mean(dep_delay, na.rm = TRUE),
+    avg_arr_delay = mean(arr_delay, na.rm = TRUE),
+    count = n()) %&gt;%
+  arrange(desc(count))
+
+View(worst_delays_carrier_airport)
+</code></pre><p><em>We can see that on average, EV has the worst track record in terms of delays. It&rsquo;s also third in terms of most flights out of all the airlines.</em></p>
+<p><strong>A better way to do this as in R4DS solution compares delays between carriers and within each route</strong></p>
+<pre><code class="language-{r}" data-lang="{r}">flights %&gt;%
+  filter(!is.na(arr_delay)) %&gt;%
+  # Total delay by carrier within each origin, dest
+  group_by(origin, dest, carrier) %&gt;%
+  summarise(
+    arr_delay = sum(arr_delay),
+    flights = n()
+  ) %&gt;%
+  # Total delay within each origin dest
+  group_by(origin, dest) %&gt;%
+  mutate(
+    arr_delay_total = sum(arr_delay),
+    flights_total = sum(flights)
+  ) %&gt;%
+  # average delay of each carrier - average delay of other carriers
+  ungroup() %&gt;%
+  mutate(
+    arr_delay_others = (arr_delay_total - arr_delay) /
+      (flights_total - flights),
+    arr_delay_mean = arr_delay / flights,
+    arr_delay_diff = arr_delay_mean - arr_delay_others
+  ) %&gt;%
+  # remove NaN values (when there is only one carrier)
+  filter(is.finite(arr_delay_diff)) %&gt;%
+  # average over all airports it flies to
+  group_by(carrier) %&gt;%
+  summarise(arr_delay_diff = mean(arr_delay_diff)) %&gt;%
+  arrange(desc(arr_delay_diff))
+</code></pre><ol start="7">
+<li>What does the sort argument to count() do. When might you use it?</li>
+</ol>
+<p><em>Sort simply allows us to choose whether to sort in ascending or descending. If we put TRUE, it&rsquo;ll sort in descending order</em></p>
+<h3 id="grouped-mutates-and-filters">Grouped Mutates and Filters</h3>
+<pre><code class="language-{r}" data-lang="{r}">flights_sml &lt;- select(flights, 
+  year:day, 
+  ends_with(&quot;delay&quot;), 
+  distance, 
+  air_time
+)
+
+# find worst members of each group
+flights_sml %&gt;% 
+  group_by(year, month, day) %&gt;%
+  filter(rank(desc(arr_delay)) &lt; 10)
+
+# find most popular destinations
+popular_dest &lt;- flights %&gt;%
+  group_by(dest) %&gt;%
+  filter(n() &gt; 365)
+
+popular_dest
+
+# standardise to compute per group metrics
+popular_dest %&gt;%
+  filter(arr_delay &gt; 0) %&gt;%
+  mutate(prop_delay = arr_delay / sum(arr_delay)) %&gt;%
+  select(year:day, dest, arr_delay, prop_delay)
+
+</code></pre><p>Testing window functions:</p>
+<pre><code class="language-{r}" data-lang="{r}">library(Lahman)
+
+batting &lt;- Lahman::Batting %&gt;%
+  as_tibble() %&gt;%
+  select(playerID, yearID, teamID, G, AB:H) %&gt;%
+  arrange(playerID, yearID, teamID) %&gt;%
+  semi_join(Lahman::AwardsPlayers, by = &quot;playerID&quot;)
+
+players &lt;- batting %&gt;% group_by(playerID)
+filter(players, min_rank(desc(H)) &lt;= 2 &amp; H&gt;0)
+</code></pre><p>Exercises:</p>
+<ol>
+<li>Refer back to the lists of useful mutate and filtering functions. Describe how each operation changes when you combine it with grouping.</li>
+</ol>
+<p><em>Summary functions (<code>mean()</code>), offset functions (<code>lead()</code>, <code>lag()</code>), ranking functions (<code>min_rank()</code>, <code>row_number()</code>), operate within each group when used with <code>group_by()</code> in 
+<code>mutate()</code> or <code>filter()</code>.
+Arithmetic operators (<code>+</code>, <code>-</code>), logical operators (<code>&lt;</code>, <code>==</code>), modular arithmetic operators (<code>%%</code>, <code>%/%</code>), logarithmic functions (<code>log</code>) are not affected by <code>group_by</code>.</em></p>
+<p>Summary functions like <code>mean()</code>, <code>median()</code>, <code>sum()</code>, <code>std()</code> and others covered
+in the section <a href="https://r4ds.had.co.nz/transform.html#summarise-funs">Useful Summary Functions</a> 
+calculate their values within each group when used with <code>mutate()</code> or <code>filter()</code> and <code>group_by()</code>.</p>
+<pre><code class="language-{r}" data-lang="{r}">tibble(x = 1:9,
+       group = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 3)) %&gt;%
+  mutate(x_mean = mean(x)) %&gt;%
+  group_by(group) %&gt;%
+  mutate(x_mean_2 = mean(x))
+</code></pre><p>Arithmetic operators <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>^</code> are not affected by <code>group_by()</code>.</p>
+<pre><code class="language-{r}" data-lang="{r}">tibble(x = 1:9,
+       group = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 3)) %&gt;%
+  mutate(y = x + 2) %&gt;%
+  group_by(group) %&gt;%
+  mutate(z = x + 2)
+</code></pre><p>The modular arithmetic operators <code>%/%</code> and <code>%%</code> are not affected by <code>group_by()</code></p>
+<pre><code class="language-{r}" data-lang="{r}">tibble(x = 1:9,
+       group = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 3)) %&gt;%
+  mutate(y = x %% 2) %&gt;%
+  group_by(group) %&gt;%
+  mutate(z = x %% 2)
+</code></pre><p>The logarithmic functions <code>log()</code>, <code>log2()</code>, and <code>log10()</code> are not affected by
+<code>group_by()</code>.</p>
+<pre><code class="language-{r}" data-lang="{r}">tibble(x = 1:9,
+       group = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 3)) %&gt;%
+  mutate(y = log(x)) %&gt;%
+  group_by(group) %&gt;%
+  mutate(z = log(x))
+</code></pre><p>The offset functions <code>lead()</code> and <code>lag()</code> respect the groupings in <code>group_by()</code>.
+The functions <code>lag()</code> and <code>lead()</code> will only return values within each group.</p>
+<pre><code class="language-{r}" data-lang="{r}">tibble(x = 1:9,
+       group = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 3)) %&gt;%
+  group_by(group) %&gt;%
+  mutate(lag_x = lag(x),
+         lead_x = lead(x))
+</code></pre><p>The cumulative and rolling aggregate functions <code>cumsum()</code>, <code>cumprod()</code>, <code>cummin()</code>, <code>cummax()</code>, and <code>cummean()</code> calculate values within each group.</p>
+<pre><code class="language-{r}" data-lang="{r}">tibble(x = 1:9,
+       group = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 3)) %&gt;%
+  mutate(x_cumsum = cumsum(x)) %&gt;%
+  group_by(group) %&gt;%
+  mutate(x_cumsum_2 = cumsum(x))
+</code></pre><p>Logical comparisons, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>!=</code>, and <code>==</code> are not affected by <code>group_by()</code>.</p>
+<pre><code class="language-{r}" data-lang="{r}">tibble(x = 1:9,
+       y = 9:1,
+       group = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 3)) %&gt;%
+  mutate(x_lte_y = x &lt;= y) %&gt;%
+  group_by(group) %&gt;%
+  mutate(x_lte_y_2 = x &lt;= y)
+</code></pre><p>Ranking functions like <code>min_rank()</code> work within each group when used with <code>group_by()</code>.</p>
+<pre><code class="language-{r}" data-lang="{r}">tibble(x = 1:9,
+       group = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 3)) %&gt;%
+  mutate(rnk = min_rank(x)) %&gt;%
+  group_by(group) %&gt;%
+  mutate(rnk2 = min_rank(x))
+</code></pre><p>Though not asked in the question, note that <code>arrange()</code> ignores groups when sorting values.</p>
+<pre><code class="language-{r}" data-lang="{r}">tibble(x = runif(9),
+       group = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 3)) %&gt;%
+  group_by(group) %&gt;%
+  arrange(x)
+</code></pre><p>However, the order of values from <code>arrange()</code> can interact with groups when 
+used with functions that rely on the ordering of elements, such as <code>lead()</code>, <code>lag()</code>,
+or <code>cumsum()</code>.</p>
+<pre><code class="language-{r}" data-lang="{r}">tibble(group = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 3), 
+       x = runif(9)) %&gt;%
+  group_by(group) %&gt;%
+  arrange(x) %&gt;%
+  mutate(lag_x = lag(x))
+</code></pre><ol start="2">
+<li>Which plane (tailnum) has the worst on-time record?</li>
+</ol>
+<pre><code class="language-{r}" data-lang="{r}">flights %&gt;%
+  filter(!is.na(tailnum)) %&gt;%
+  mutate(on_time = !is.na(arr_time) &amp; (arr_delay &lt;= 0)) %&gt;%
+  group_by(tailnum) %&gt;%
+  summarise(on_time = mean(on_time), n=n()) %&gt;%
+  filter(n &gt; 20) %&gt;%
+  filter(min_rank(on_time) == 1)
+</code></pre><p><em>The plane with the worst record (which has flown &gt;20 trips is N988AT)</em></p>
+<ol start="3">
+<li>What time of day should you fly if you want to avoid delays as much as possible?</li>
+</ol>
+<pre><code class="language-{r}" data-lang="{r}">flights %&gt;% 
+  group_by(hour) %&gt;%
+  summarise(
+    avg_delay_time = mean(arr_delay, na.rm = TRUE)
+  ) %&gt;%
+  arrange(desc(avg_delay_time))
+</code></pre><p><em>Should fly as early as possible - likely to be fewer flights and less likely to have a previous flight that is delayed</em></p>
+<ol start="4">
+<li>For each destination, compute the total minutes of delay. For each flight, compute the proportion of the total delay for its destination.</li>
+</ol>
+<pre><code class="language-{r}" data-lang="{r}">flights %&gt;%
+  filter(arr_delay &gt; 0) %&gt;%
+  group_by(dest) %&gt;%
+  summarise(tot_delay = sum(arr_delay, na.rm=TRUE)) %&gt;%
+  arrange(desc(tot_delay))
+
+flights %&gt;%
+  filter(arr_delay &gt; 0) %&gt;%
+  group_by(dest) %&gt;%
+  mutate(
+    arr_delay_total = sum(arr_delay),
+    arr_delay_prop = arr_delay / arr_delay_total
+  ) %&gt;%
+  select(dest, month, day, dep_time, carrier, flight, arr_delay, arr_delay_prop) %&gt;%
+  arrange(dest, desc(arr_delay_prop))
+
+flights %&gt;%
+  filter(arr_delay &gt;0) %&gt;%
+  group_by(dest, origin, carrier, flight) %&gt;%
+  summarise(arr_delay = sum(arr_delay)) %&gt;%
+  group_by(dest) %&gt;%
+  mutate(
+    arr_delay_prop = arr_delay / sum(arr_delay)
+  ) %&gt;%
+  arrange(dest, desc(arr_delay_prop)) %&gt;%
+  select(carrier,flight,origin, dest, arr_delay_prop)
+
+flights
+</code></pre><ol start="5">
+<li>Delays are typically temporally correlated: even once the problem that caused the initial delay has been resolved, later flights are delayed to allow earlier flights to leave. Using lag(), explore how the delay of a flight is related to the delay of the immediately preceding flight.</li>
+</ol>
+<pre><code class="language-{r}" data-lang="{r}"># calculating the departure delay of the preceding flight from same airport
+lagged_delays &lt;- flights %&gt;%
+  arrange(origin, month, day, dep_time) %&gt;%
+  filter(dep_delay &gt; 0) %&gt;%
+  group_by(origin) %&gt;%
+  mutate(dep_delay_lag = lag(dep_delay)) %&gt;%
+  filter(!is.na(dep_delay), !is.na(dep_delay_lag))
+
+View(lagged_delays)
+
+lagged_delays %&gt;%
+  group_by(dep_delay_lag) %&gt;%
+  summarise(dep_delay_mean = mean(dep_delay)) %&gt;%
+  ggplot(aes(y = dep_delay_mean, x = dep_delay_lag)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(0, 1500, by = 120)) +
+  labs(y = &quot;Departure Delay&quot;, x = &quot;Previous Departure Delay&quot;)
+
+lagged_delays %&gt;%
+  group_by(origin, dep_delay_lag) %&gt;%
+  summarise(dep_delay_mean = mean(dep_delay)) %&gt;%
+  ggplot(aes(y = dep_delay_mean, x = dep_delay_lag)) +
+  geom_point() +
+  facet_wrap(~ origin, ncol=1) +
+  labs(y = &quot;Departure Delay&quot;, x = &quot;Previous Departure Delay&quot;)
+</code></pre><ol start="6">
+<li>Look at each destination. Can you find flights that are suspiciously fast? (i.e. flights that represent a potential data entry error). Compute the air time of a flight relative to the shortest flight to that destination. Which flights were most delayed in the air?</li>
+</ol>
+<pre><code class="language-{r}" data-lang="{r}"># find flight time by dest and origin, compute air time relative to that flight time
+# which ones were most delayed based on avg flight time
+# calculating the z-score
+standardised_flights &lt;- flights %&gt;% 
+  filter(!is.na(air_time)) %&gt;%
+  group_by(origin, dest) %&gt;%
+  mutate(
+    avg_air_time = mean(air_time),
+    sd_air_time = sd(air_time),
+    n = n()
+    ) %&gt;%
+  ungroup() %&gt;%
+  mutate(air_time_standard = (air_time - avg_air_time) / (sd_air_time + 1))
+
+# check distribution
+ggplot(standardised_flights, aes(x=air_time_standard)) +
+  geom_density()
+
+standardised_flights %&gt;%
+  arrange(air_time_standard) %&gt;%
+  select(
+    carrier, flight, origin, dest, month, day, air_time, avg_air_time, air_time_standard
+  ) %&gt;%
+  head(10)
+</code></pre><ol start="7">
+<li>Find all destinations that are flown by at least two carriers. Use that information to rank the carriers.</li>
+</ol>
+<pre><code class="language-{r}" data-lang="{r}">flights %&gt;%
+  group_by(dest) %&gt;%
+  mutate(n_carriers = n_distinct(carrier)) %&gt;%
+  filter(n_carriers &gt; 1) %&gt;%
+  group_by(carrier) %&gt;%
+  summarise(n_dest = n_distinct(dest)) %&gt;%
+  arrange(desc(n_dest))
+</code></pre>
+
+
+      
+    </article>
+    
+    
+  </div>
+
+    <footer>
+  <div class="container">
+    <p class="credits copyright">
+      <a href="/about">duncan pastoors</a>
+      &nbsp;&copy;
+      2020
+
+
+      &nbsp;&ndash;&nbsp;
+      <i class="fas fa-moon" id="dark-mode-toggle"></i>
+
+      <p class="credits theme-by">
+        Powered By <a href="https://gohugo.io">Hugo</a>&nbsp;Theme <a href="https://github.com/matsuyoshi30/harbor">Harbor</a>
+      </p>
+    </p>
+  </div>
+</footer>
+
+  </body>
+</html>
