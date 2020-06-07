@@ -1,7 +1,6 @@
 theme = "harbor"
-baseURL = "https://gohugo.io"
+baseURL = "/"
 title = "Duncan Pastoors"
-author = "Steve Francia"
 paginate = 3
 languageCode = "en"
 DefaultContentLanguage = "en"
