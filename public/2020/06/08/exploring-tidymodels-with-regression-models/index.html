@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+<title>Exploring Tidymodels with Regression Models</title>
+
+
+  
+
+
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="alternate" type="application/rss+xml" href="/index.xml" title="Duncan Pastoors">
+
+<link rel="stylesheet" href="/css/dp-styles.css" />
+<link rel="stylesheet" href="/css/main.css" />
+<link rel="stylesheet" href="/fontawesome/css/all.min.css" />
+
+<script src="/js/bundle.js"></script>
+<script src="/js/instantpage.js" type="module" defer></script>
+<meta name="generator" content="Hugo 0.72.0" />
+  </head>
+  <body>
+    
+  
+
+
+
+
+  <header>
+    <nav class="navbar">
+  <div class="nav">
+    
+      <a href="/" class="nav-logo">
+      <img src="/images/icon.png"
+           width="50"
+           height="50"
+           alt="Logo">
+      </a>
+    
+
+    <ul class="nav-links">
+      
+        
+          <li><a href="/tags" name="Tags"><i class="fas fa-tag fa-lg"></i></a></li>
+        
+      
+    </ul>
+  </div>
+</nav>
+
+    <div class="intro-header">
+      <div class="container">
+        <div class="post-heading">
+          
+            
+              <h1>Exploring Tidymodels with Regression Models</h1>
+            
+          
+          
+            <span class="meta-post">
+  <i class="fa fa-calendar-alt"></i>&nbsp;Jun 8, 2020
+  
+    &nbsp;&nbsp;&nbsp;<i class="fa fa-folder-open"></i>&nbsp;
+    
+      <a href="//categories/modeling/">modeling</a>&nbsp;
+    
+      <a href="//categories/regression/">regression</a>&nbsp;
+    
+  
+</span>
+
+          
+        </div>
+      </div>
+    </div>
+  </header>
+
+
+    
+  <div class="container" role="main">
+    <article class="article" class="blog-post">
+      
+    <p>Learning the Tidymodels process and implemementing some regression models to use as a reference in the future!</p>
+<h2 id="explore">Explore</h2>
+<p>Going to start with cleaning the column names. I think there&rsquo;s going to be quite a lot of overlap between some of the variables so let&rsquo;s choose which ones we want to keep in order to predict house price. Just glimpsing over the data, let&rsquo;s keep <code>longitude</code>, <code>latitude</code>, <code>lot_area</code>, <code>neighborhood</code> (though may overlap with long / lat), <code>year_sold</code> and <code>overall_qual</code>.</p>
+<div class="highlight"><pre class="chroma"><code class="language-r" data-lang="r"><span class="n">ames_e</span> <span class="o">&lt;-</span> <span class="n">ames</span> <span class="o">%&gt;%</span>
+  <span class="n">janitor</span><span class="o">::</span><span class="nf">clean_names</span><span class="p">()</span> <span class="o">%&gt;%</span>
+  <span class="nf">select</span><span class="p">(</span><span class="n">longitude</span><span class="p">,</span> <span class="n">latitude</span><span class="p">,</span> <span class="n">lot_area</span><span class="p">,</span>
+         <span class="n">neighborhood</span><span class="p">,</span> <span class="n">year_sold</span><span class="p">,</span> <span class="n">overall_qual</span><span class="p">,</span> <span class="n">sale_price</span><span class="p">)</span>
+
+<span class="nf">glimpse</span><span class="p">(</span><span class="n">ames_e</span><span class="p">)</span>
+</code></pre></div><pre><code>## Rows: 2,930
+## Columns: 7
+## $ longitude    &lt;dbl&gt; -93.61975, -93.61976, -93.61939, -93.61732, -93.63893,...
+## $ latitude     &lt;dbl&gt; 42.05403, 42.05301, 42.05266, 42.05125, 42.06090, 42.0...
+## $ lot_area     &lt;int&gt; 31770, 11622, 14267, 11160, 13830, 9978, 4920, 5005, 5...
+## $ neighborhood &lt;fct&gt; North_Ames, North_Ames, North_Ames, North_Ames, Gilber...
+## $ year_sold    &lt;int&gt; 2010, 2010, 2010, 2010, 2010, 2010, 2010, 2010, 2010, ...
+## $ overall_qual &lt;fct&gt; Above_Average, Average, Above_Average, Good, Average, ...
+## $ sale_price   &lt;int&gt; 215000, 105000, 172000, 244000, 189900, 195500, 213500...
+</code></pre><p>Let&rsquo;s plot distribution of sale_price to see if it there&rsquo;s anything weird going on:</p>
+<div class="highlight"><pre class="chroma"><code class="language-r" data-lang="r"><span class="nf">ggplot</span><span class="p">(</span><span class="n">ames_e</span><span class="p">,</span> <span class="nf">aes</span><span class="p">(</span><span class="n">sale_price</span><span class="p">))</span> <span class="o">+</span>
+  <span class="nf">geom_histogram</span><span class="p">(</span><span class="n">bins</span> <span class="o">=</span> <span class="m">30</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="m">.6</span><span class="p">,</span> <span class="n">fill</span> <span class="o">=</span> <span class="s">&#34;midnightblue&#34;</span><span class="p">)</span> <span class="o">+</span>
+  <span class="nf">scale_x_continuous</span><span class="p">(</span><span class="n">labels</span> <span class="o">=</span> <span class="n">scales</span><span class="o">::</span><span class="nf">dollar_format</span><span class="p">())</span> <span class="o">+</span>
+  <span class="nf">theme_ipsum_rc</span><span class="p">()</span> <span class="o">+</span>
+  <span class="nf">labs</span><span class="p">(</span><span class="n">y</span> <span class="o">=</span> <span class="kc">NULL</span><span class="p">,</span>
+       <span class="n">x</span> <span class="o">=</span> <span class="s">&#34;Cost&#34;</span><span class="p">,</span>
+       <span class="n">title</span> <span class="o">=</span> <span class="s">&#34;Distribution of house prices in Ames&#34;</span><span class="p">)</span>
+</code></pre></div><p><!-- raw HTML omitted --></p>
+<p>We can see there are a few extreme cases where house prices are &gt; $400k. This shouldn&rsquo;t affect the model but we can see. It is interesting to me though that these are mainly in one neighbourhood (Northridge Heights) but when looking at the distribution of that specific neighbourhood, it is still similar to that of the overall dataset!</p>
+<p>Anyway, there is not much else to explore here. Instead, we can have a go at modelling.</p>
+<h2 id="model-1">Model 1</h2>
+<p>For this dataset we can create a regression model to see if we can predict house price based on several predictors. Let&rsquo;s start by splitting the data. I also want to create some folds so I can see if I need to change the hyperparameters as we go!</p>
+<h3 id="splitting">Splitting</h3>
+<div class="highlight"><pre class="chroma"><code class="language-r" data-lang="r"><span class="nf">library</span><span class="p">(</span><span class="n">tidymodels</span><span class="p">)</span>
+</code></pre></div><pre><code>## -- Attaching packages -------------------------- tidymodels 0.1.0 --
+</code></pre><pre><code>## v broom     0.5.6          v rsample   0.0.6     
+## v dials     0.0.6          v tune      0.1.0.9000
+## v infer     0.5.1          v workflows 0.1.1     
+## v parsnip   0.1.1          v yardstick 0.0.6     
+## v recipes   0.1.12
+</code></pre><pre><code>## -- Conflicts ----------------------------- tidymodels_conflicts() --
+## x scales::discard() masks purrr::discard()
+## x dplyr::filter()   masks stats::filter()
+## x recipes::fixed()  masks stringr::fixed()
+## x dplyr::lag()      masks stats::lag()
+## x dials::margin()   masks ggplot2::margin()
+## x yardstick::spec() masks readr::spec()
+## x recipes::step()   masks stats::step()
+</code></pre><div class="highlight"><pre class="chroma"><code class="language-r" data-lang="r"><span class="n">ames_split</span> <span class="o">&lt;-</span> <span class="nf">initial_split</span><span class="p">(</span><span class="n">ames_e</span><span class="p">)</span>
+<span class="n">ames_train</span> <span class="o">&lt;-</span> <span class="nf">training</span><span class="p">(</span><span class="n">ames_split</span><span class="p">)</span>
+<span class="n">ames_test</span> <span class="o">&lt;-</span> <span class="nf">testing</span><span class="p">(</span><span class="n">ames_split</span><span class="p">)</span>
+
+<span class="nf">set.seed</span><span class="p">(</span><span class="m">123</span><span class="p">)</span>
+<span class="n">ames_folds</span> <span class="o">&lt;-</span> <span class="nf">vfold_cv</span><span class="p">(</span><span class="n">ames_train</span><span class="p">)</span>
+</code></pre></div><p>Need to remember that the general approach to Tidymodels is:</p>
+<ol>
+<li>
+<p>Recipe</p>
+</li>
+<li>
+<p>Model</p>
+</li>
+<li>
+<p>Workflow</p>
+</li>
+<li>
+<p>Fit</p>
+</li>
+<li>
+<p>Repeat</p>
+</li>
+</ol>
+<p>In terms of <strong>recipe</strong>, I don&rsquo;t think there is much to do here currently. We may have to specify a recipe to <em>log</em> our <code>sale_price</code> variable but let&rsquo;s try it without first.</p>
+<div class="highlight"><pre class="chroma"><code class="language-r" data-lang="r"><span class="n">rf_recipe</span> <span class="o">&lt;-</span>
+  <span class="nf">recipe</span><span class="p">(</span><span class="n">sale_price</span> <span class="o">~</span> <span class="n">.,</span>
+         <span class="n">data</span> <span class="o">=</span> <span class="n">ames_train</span><span class="p">)</span>
+</code></pre></div><p>Now we can have a look at the <strong>model</strong>. We&rsquo;ll start with the random forest which has 3 hyperparameters we can tune: <code>mtry</code>, <code>trees</code>, and <code>min_n</code>. For the engine, we&rsquo;ll use ranger which is a &ldquo;fast implementation of random forests or recursive partitioning particularly suited for high dimensional data&rdquo;. It supports both classification and regression so we have to specify that we&rsquo;re doing regression!</p>
+<div class="highlight"><pre class="chroma"><code class="language-r" data-lang="r"><span class="n">rf_model</span> <span class="o">&lt;-</span>
+  <span class="nf">rand_forest</span><span class="p">()</span> <span class="o">%&gt;%</span>
+  <span class="nf">set_engine</span><span class="p">(</span><span class="s">&#34;ranger&#34;</span><span class="p">)</span> <span class="o">%&gt;%</span>
+  <span class="nf">set_mode</span><span class="p">(</span><span class="s">&#34;regression&#34;</span><span class="p">)</span>
+
+<span class="n">rf_model</span> <span class="o">%&gt;%</span> <span class="nf">translate</span><span class="p">()</span>
+</code></pre></div><pre><code>## Random Forest Model Specification (regression)
+## 
+## Computational engine: ranger 
+## 
+## Model fit template:
+## ranger::ranger(formula = missing_arg(), data = missing_arg(), 
+##     case.weights = missing_arg(), num.threads = 1, verbose = FALSE, 
+##     seed = sample.int(10^5, 1))
+</code></pre><p>Now it&rsquo;s time for the <strong>workflow</strong> which simply allows us to put together the recipe and model</p>
+<div class="highlight"><pre class="chroma"><code class="language-r" data-lang="r"><span class="n">rf_wf</span> <span class="o">&lt;-</span>
+  <span class="nf">workflow</span><span class="p">()</span> <span class="o">%&gt;%</span>
+  <span class="nf">add_recipe</span><span class="p">(</span><span class="n">rf_recipe</span><span class="p">)</span> <span class="o">%&gt;%</span>
+  <span class="nf">add_model</span><span class="p">(</span><span class="n">rf_model</span><span class="p">)</span>
+
+<span class="nf">summary</span><span class="p">(</span><span class="n">rf_wf</span><span class="p">)</span>
+</code></pre></div><pre><code>##         Length Class      Mode   
+## pre     2      stage_pre  list   
+## fit     2      stage_fit  list   
+## post    1      stage_post list   
+## trained 1      -none-     logical
+</code></pre><p>And let&rsquo;s <strong>fit</strong>, to see if we should adjust our hyperparameters.</p>
+<div class="highlight"><pre class="chroma"><code class="language-r" data-lang="r"><span class="nf">set.seed</span><span class="p">(</span><span class="m">123</span><span class="p">)</span>
+<span class="n">rf_fit</span> <span class="o">&lt;-</span>
+  <span class="n">rf_wf</span> <span class="o">%&gt;%</span>
+  <span class="nf">fit_resamples</span><span class="p">(</span><span class="n">resamples</span> <span class="o">=</span> <span class="n">ames_folds</span><span class="p">)</span>
+
+<span class="n">rf_fit</span> <span class="o">%&gt;%</span>
+  <span class="nf">collect_metrics</span><span class="p">()</span>
+</code></pre></div><pre><code>## # A tibble: 2 x 5
+##   .metric .estimator      mean     n  std_err
+##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt; &lt;int&gt;    &lt;dbl&gt;
+## 1 rmse    standard   33500.       10 892.    
+## 2 rsq     standard       0.829    10   0.0108
+</code></pre><p>The <code>\(R^{2}\)</code> looks <em>okay</em> for the training set - sitting at 0.83 and we have an RMSE of $33,494. Let&rsquo;s see what it looks like on the testing data!</p>
+<h3 id="predict">Predict</h3>
+<div class="highlight"><pre class="chroma"><code class="language-r" data-lang="r"><span class="nf">set.seed</span><span class="p">(</span><span class="m">123</span><span class="p">)</span>
+<span class="n">rf_last_fit</span> <span class="o">&lt;-</span>
+  <span class="n">rf_wf</span> <span class="o">%&gt;%</span>
+  <span class="nf">last_fit</span><span class="p">(</span><span class="n">split</span> <span class="o">=</span> <span class="n">ames_split</span><span class="p">)</span>
+
+<span class="n">results</span> <span class="o">&lt;-</span> <span class="n">rf_last_fit</span> <span class="o">%&gt;%</span> 
+  <span class="nf">collect_metrics</span><span class="p">()</span>
+
+<span class="n">results</span><span class="o">$</span><span class="n">.estimate[1]</span>
+</code></pre></div><pre><code>## [1] 31207.7
+</code></pre><div class="highlight"><pre class="chroma"><code class="language-r" data-lang="r"><span class="n">rf_last_fit</span> <span class="o">%&gt;%</span>
+  <span class="nf">collect_predictions</span><span class="p">()</span> <span class="o">%&gt;%</span>
+  <span class="nf">ggplot</span><span class="p">(</span><span class="nf">aes</span><span class="p">(</span><span class="n">.pred</span><span class="p">,</span> <span class="n">sale_price</span><span class="p">))</span> <span class="o">+</span>
+  <span class="nf">geom_abline</span><span class="p">(</span><span class="n">col</span> <span class="o">=</span> <span class="s">&#34;green&#34;</span><span class="p">,</span> <span class="n">lty</span> <span class="o">=</span> <span class="m">2</span><span class="p">)</span> <span class="o">+</span>
+  <span class="nf">geom_point</span><span class="p">(</span><span class="n">alpha</span> <span class="o">=</span> <span class="m">.4</span><span class="p">,</span> <span class="n">colour</span> <span class="o">=</span> <span class="s">&#34;midnightblue&#34;</span><span class="p">)</span> <span class="o">+</span>
+  <span class="nf">annotate</span><span class="p">(</span><span class="s">&#34;text&#34;</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="kc">Inf</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="kc">Inf</span><span class="p">,</span> <span class="n">hjust</span> <span class="o">=</span> <span class="m">1.5</span><span class="p">,</span> <span class="n">vjust</span> <span class="o">=</span> <span class="m">2</span><span class="p">,</span> 
+           <span class="n">label</span> <span class="o">=</span> <span class="nf">paste</span><span class="p">(</span><span class="s">&#34;RMSE: &#34;</span><span class="p">,</span> <span class="nf">round</span><span class="p">(</span><span class="n">results</span><span class="o">$</span><span class="n">.estimate[1]</span><span class="p">,</span> <span class="m">4</span><span class="p">)))</span> <span class="o">+</span>
+  <span class="nf">labs</span><span class="p">(</span><span class="n">title</span> <span class="o">=</span> <span class="s">&#34;Random tree model&#34;</span><span class="p">,</span>
+       <span class="n">subtitle</span> <span class="o">=</span> <span class="s">&#34;No hyperparameters tuned, ranger engine&#34;</span><span class="p">)</span> <span class="o">+</span>
+  <span class="nf">scale_x_continuous</span><span class="p">(</span><span class="n">labels</span> <span class="o">=</span> <span class="n">scales</span><span class="o">::</span><span class="nf">dollar_format</span><span class="p">())</span> <span class="o">+</span>
+  <span class="nf">scale_y_continuous</span><span class="p">(</span><span class="n">labels</span> <span class="o">=</span> <span class="n">scales</span><span class="o">::</span><span class="nf">dollar_format</span><span class="p">())</span>
+</code></pre></div><p><!-- raw HTML omitted --></p>
+<p>The RMSE for the test set is $28,634 which means that on average, the predictions are about 29k off the actuals. The <code>\(R^2\)</code> looks about similar to the training set though, and there&rsquo;s not SUCH a big difference between training and testing RMSE as to cause alarm. Let&rsquo;s try doing it again, but this time we&rsquo;ll tune the hyper-parameters and see if it gets any better. Once we&rsquo;ve done the hyper-parameters, I also want to log10 the <code>sale_price</code> column to see if that makes a difference.</p>
+
+
+      
+        <div class="blog-tags">
+          
+            <a href="//tags/regression/">regression</a>&nbsp;
+          
+            <a href="//tags/model/">model</a>&nbsp;
+          
+            <a href="//tags/tidymodels/">tidymodels</a>&nbsp;
+          
+        </div>
+      
+    </article>
+    
+    
+  </div>
+
+    <footer>
+  <div class="container">
+    <p>adapted with <i class="fa fa-heart" aria-hidden="true"></i> by Duncan</p>
+      <p class="credits theme-by">
+        Powered By <a href="https://gohugo.io">Hugo</a>&nbsp;Theme <a href="https://github.com/matsuyoshi30/harbor">Harbor</a>
+      </p>
+    <div class="container text-center social-icons">
+      <a href="https://github.com/duncip"><i class="fab fa-github-square"></i></a>
+      <a href="https://twitter.com/duncip"><i class="fas fa-hashtag"></i></a>
+      <a href="mailto:duncan@duncanpastoors.com"><i class="fas fa-reply"></i></a>
+    </div>
+  </div>
+</footer>
+
+  </body>
+</html>

@@ -1,0 +1,29 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>tidymodels on Duncan Pastoors</title>
+		<link>https://duncip.netlify.app/tags/tidymodels/</link>
+		<description>Recent content in tidymodels on Duncan Pastoors</description>
+		<generator>Hugo -- gohugo.io</generator>
+		
+  		<language>en</language>
+		
+		<managingEditor>Page(/tags/tidymodels) (duncan pastoors)</managingEditor>
+    	
+  		<lastBuildDate>Mon, 08 Jun 2020 00:00:00 +0000</lastBuildDate>
+		
+		<atom:link href="https://duncip.netlify.app/tags/tidymodels/" rel="self" type="application/rss+xml" />
+		
+		<item>
+			<title>Exploring Tidymodels with regression</title>
+			<link>https://duncip.netlify.app/2020/06/08/exploring-tidymodels-with-regression/</link>
+			<pubDate>Mon, 08 Jun 2020 00:00:00 +0000</pubDate>
+			<guid>https://duncip.netlify.app/2020/06/08/exploring-tidymodels-with-regression/</guid>
+			<description>
+
+
+&lt;p&gt;Learning the Tidymodels process and implementing some regression models to use as a reference in the future!
+</description>
+		</item>
+      	
+	</channel>
+</rss>

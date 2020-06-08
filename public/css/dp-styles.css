@@ -1,0 +1,40 @@
+/****************************************
+* Adjusted main settings for Hugo's Harbor theme
+****************************************/
+
+/****************************************
+* Social icons
+****************************************/
+.social-icons i {
+  font-size: 1.5rem;
+  padding: 0.5em 0.2em 0 0;
+}
+
+
+/***************************************
+* Articles
+***************************************/
+.article img {
+    margin: 2rem auto 2rem auto;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, .2);
+    height: auto;
+    max-width: 100%;
+    display: block;
+}
+
+.article p {
+  font-size: 1.1em;
+}
+
+/***************************************
+* Code blocks
+***************************************/
+.highlight {
+  padding-top: 0.5em;
+}
+
+.article pre {
+  margin: 25px 0 25px 0;
+}

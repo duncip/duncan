@@ -12,7 +12,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="alternate" type="application/rss+xml" href="/index.xml" title="Duncan Pastoors">
 
-<link id="dark-mode-theme" rel="stylesheet" href="/css/dark.css" />
+<link rel="stylesheet" href="/css/dp-styles.css" />
+<link rel="stylesheet" href="/css/main.css" />
 <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
 
 <script src="/js/bundle.js"></script>
@@ -41,15 +42,7 @@
     <ul class="nav-links">
       
         
-          <li><a href="/about" name="About"><i class="fas fa-user fa-lg"></i></a></li>
-        
-      
-        
           <li><a href="/tags" name="Tags"><i class="fas fa-tag fa-lg"></i></a></li>
-        
-      
-        
-          <li><a href="/search" name="Search"><i class="fas fa-search fa-lg"></i></a></li>
         
       
     </ul>
@@ -87,13 +80,36 @@
 no
 </div>
 
-<div id="title" class="section level1">
-<h1>Title</h1>
-<!-- toc -->
-<div id="contents" class="section level2">
-<h2>Contents</h2>
-</div>
-</div>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## -- Attaching packages --------------------------- tidyverse 1.3.0 --</code></pre>
+<pre><code>## v ggplot2 3.3.1     v purrr   0.3.4
+## v tibble  3.0.1     v dplyr   1.0.0
+## v tidyr   1.1.0     v stringr 1.4.0
+## v readr   1.3.1     v forcats 0.5.0</code></pre>
+<pre><code>## -- Conflicts ------------------------------ tidyverse_conflicts() --
+## x dplyr::filter() masks stats::filter()
+## x dplyr::lag()    masks stats::lag()</code></pre>
+<pre class="r"><code>library(hrbrthemes)
+theme_set(theme_ipsum_rc())</code></pre>
+<p>There’s lots of text here. Let’s build a code chunk to see if it renders..</p>
+<pre class="r"><code>mpg %&gt;%
+  mutate(cyl = 5) %&gt;%
+  filter(manufacturer == &quot;audi&quot; &amp; model == &quot;a4&quot;)</code></pre>
+<pre><code>## # A tibble: 7 x 11
+##   manufacturer model displ  year   cyl trans      drv     cty   hwy fl    class 
+##   &lt;chr&gt;        &lt;chr&gt; &lt;dbl&gt; &lt;int&gt; &lt;dbl&gt; &lt;chr&gt;      &lt;chr&gt; &lt;int&gt; &lt;int&gt; &lt;chr&gt; &lt;chr&gt; 
+## 1 audi         a4      1.8  1999     5 auto(l5)   f        18    29 p     compa~
+## 2 audi         a4      1.8  1999     5 manual(m5) f        21    29 p     compa~
+## 3 audi         a4      2    2008     5 manual(m6) f        20    31 p     compa~
+## 4 audi         a4      2    2008     5 auto(av)   f        21    30 p     compa~
+## 5 audi         a4      2.8  1999     5 auto(l5)   f        16    26 p     compa~
+## 6 audi         a4      2.8  1999     5 manual(m5) f        18    26 p     compa~
+## 7 audi         a4      3.1  2008     5 auto(av)   f        18    27 p     compa~</code></pre>
+<pre class="r"><code>mpg %&gt;%
+  ggplot(aes(hwy, cty)) +
+  geom_point(col = &quot;midnightblue&quot;) +
+  labs(title = &quot;Test plot&quot;)</code></pre>
+<p><img src="/post/2020-06-07-another-test_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
 
 
 
@@ -109,7 +125,7 @@ no
       <p class="credits theme-by">
         Powered By <a href="https://gohugo.io">Hugo</a>&nbsp;Theme <a href="https://github.com/matsuyoshi30/harbor">Harbor</a>
       </p>
-    <div class="container text-center social-icons" style="font-size: 1.5rem; padding: 0.2rem;">
+    <div class="container text-center social-icons">
       <a href="https://github.com/duncip"><i class="fab fa-github-square"></i></a>
       <a href="https://twitter.com/duncip"><i class="fas fa-hashtag"></i></a>
       <a href="mailto:duncan@duncanpastoors.com"><i class="fas fa-reply"></i></a>

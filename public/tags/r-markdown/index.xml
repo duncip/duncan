@@ -14,11 +14,39 @@
 		<atom:link href="/tags/r-markdown/" rel="self" type="application/rss+xml" />
 		
 		<item>
+			<title>Exploring Tidymodels with regression</title>
+			<link>/2020/06/08/exploring-tidymodels-with-regression/</link>
+			<pubDate>Mon, 08 Jun 2020 00:00:00 +0000</pubDate>
+			<guid>/2020/06/08/exploring-tidymodels-with-regression/</guid>
+			<description>
+
+
+&lt;p&gt;Learning the Tidymodels process and implementing some regression models to use as a reference in the future!
+</description>
+		</item>
+      	
+		<item>
+			<title>Exploring Tidymodels with Regression Models</title>
+			<link>/2020/06/08/exploring-tidymodels-with-regression-models/</link>
+			<pubDate>Mon, 08 Jun 2020 00:00:00 +0000</pubDate>
+			<guid>/2020/06/08/exploring-tidymodels-with-regression-models/</guid>
+			<description>&lt;p&gt;Learning the Tidymodels process and implemementing some regression models to use as a reference in the future!&lt;/p&gt;</description>
+		</item>
+      	
+		<item>
+			<title>Let us try Rmarkdown</title>
+			<link>/2020/06/08/let-us-try-rmarkdown/</link>
+			<pubDate>Mon, 08 Jun 2020 00:00:00 +0000</pubDate>
+			<guid>/2020/06/08/let-us-try-rmarkdown/</guid>
+			<description>&lt;p&gt;This text is all we&amp;rsquo;d like to see on the front page and below. Can we pls have that happen.&lt;/p&gt;</description>
+		</item>
+      	
+		<item>
 			<title>another test</title>
 			<link>/2020/06/07/another-test/</link>
 			<pubDate>Sun, 07 Jun 2020 00:00:00 +0000</pubDate>
 			<guid>/2020/06/07/another-test/</guid>
-			<description>noTitleContents</description>
+			<description>nolibrary(tidyverse)## -- Attaching packages --------------------------- tidyverse 1.3.0 --## v ggplot2 3.3.1 v purrr 0.3.4## v tibble 3.0.1 v dplyr 1.0.0## v tidyr 1.1.0 v stringr 1.4.0## v readr 1.3.1 v forcats 0.5.0## -- Conflicts ------------------------------ tidyverse_conflicts() --## x dplyr::filter() masks stats::filter()## x dplyr::lag() masks stats::lag()library(hrbrthemes)theme_set(theme_ipsum_rc())There’s lots of text here. Let’s build a code chunk to see if it renders.</description>
 		</item>
       	
 		<item>
@@ -76,16 +104,6 @@ pectora summo.&lt;/p&gt;</description>
 			<pubDate>Tue, 05 Mar 2019 00:00:00 +0000</pubDate>
 			<guid>/2019/03/05/emoji-support/</guid>
 			<description>&lt;p&gt;Emoji can be enabled in a Hugo project in a number of ways.&lt;/p&gt;</description>
-		</item>
-      	
-		<item>
-			<title>Hello R Markdown</title>
-			<link>/2015/07/23/hello-r-markdown/</link>
-			<pubDate>Thu, 23 Jul 2015 21:13:14 -0500</pubDate>
-			<guid>/2015/07/23/hello-r-markdown/</guid>
-			<description>R MarkdownThis is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see http://rmarkdown.rstudio.com.
-You can embed an R code chunk like this:
-summary(cars)## speed dist ## Min. : 4.0 Min. : 2.00 ## 1st Qu.:12.0 1st Qu.: 26.00 ## Median :15.0 Median : 36.00 ## Mean :15.4 Mean : 42.98 ## 3rd Qu.</description>
 		</item>
       	
 	</channel>

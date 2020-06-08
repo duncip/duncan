@@ -1,0 +1,333 @@
+---
+title: Exploring Tidymodels with regression
+author: Duncan
+date: '2020-06-08'
+slug: exploring-tidymodels-with-regression
+categories: [modeling, regression]
+tags: [modeling, regression, tidymodels]
+editor_options: 
+  chunk_output_type: console
+---
+
+Learning the Tidymodels process and implementing some regression models to use as a reference in the future!
+<!--more-->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      comment = "#>",
+                      collapse = TRUE)
+
+library(tidyverse)
+library(AmesHousing)
+library(hrbrthemes)
+
+ames <- AmesHousing::make_ames()
+
+theme_set(theme_ipsum_rc())
+```
+
+Most of the things below are learnt through materials provided by Julia Silge ([her course](https://supervised-ml-course.netlify.app/)) and Alison Hill's course [at rstudio::conf(2020)](https://alison.rbind.io/). It's mainly to have a reference for myself in terms of what the Tidymodels workflow is as it makes modeling much easier. I'm not aiming for accuracy of models here (and the comparisons are not great when using RMSE considering different processes), instead, I just want to document the Tidymodels process so I can easily implement it in the future.
+
+## Explore
+Let's have a look at the data - I don't want to do too much data manipulation here as want to focus on the aspect of a simple Tidymodels workflow!
+
+```{r data}
+ames %>%
+  head(5)
+```
+
+Immediately the amount of columns jumps out. I will start with cleaning the names and, because I think there's going to be quite a lot of overlap between some of the variables, I'm going to select some that I think will be useful in predicting house price. Just glimpsing over the data, let's keep `longitude`, `latitude`, `lot_area`, `neighborhood` (though may overlap with long / lat), `year_sold` and `overall_qual`.
+
+```{r}
+ames_e <- ames %>%
+  janitor::clean_names() %>%
+  select(longitude, latitude, lot_area,
+         neighborhood, year_sold, overall_qual, sale_price)
+
+glimpse(ames_e)
+```
+
+Let's plot distribution of sale_price to see if it there's anything weird going on:
+
+```{r}
+ggplot(ames_e, aes(sale_price)) +
+  geom_histogram(bins = 30, alpha = .6, fill = "midnightblue") +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  theme_ipsum_rc() +
+  labs(y = NULL,
+       x = "Cost",
+       title = "Distribution of house prices in Ames")
+```
+
+We can see there are a few extreme cases where house prices are > $400k. Additionally, because of the high numbers, it might be good to log10 but I will try without first. It is interesting to me though that these are mainly in one neighbourhood (Northridge Heights) but when looking at the distribution of that specific neighbourhood, it is still similar to that of the overall dataset!
+
+Anyway, there is not much else to explore here. Instead, let's look at the Tidymodel process.
+
+## Model 1
+I'm only going to be using regression models for this article and the aim is to see if we can predict house prices based on the predictors we picked. I'll start by splitting the data and also create some folds so we don't have to touch the testing data until later.
+
+### Splitting
+```{r include = FALSE}
+library(tidymodels)
+```
+
+```{r}
+ames_split <- initial_split(ames_e)
+ames_train <- training(ames_split)
+ames_test <- testing(ames_split)
+
+set.seed(123)
+ames_folds <- vfold_cv(ames_train)
+```
+
+Need to remember that the general approach to Tidymodels is:
+
+1. Recipe
+
+1. Model
+
+1. Workflow
+
+1. Fit
+
+1. Repeat
+
+In terms of **recipe**, I don't think there is much to do here currently. We may have to specify a recipe to *log* our `sale_price` variable but let's try it without first. Usually though, a recipe can allow us to define many steps that make things like normalising / centering data easier. Can also help with zero variables.
+
+```{r}
+rf_recipe <-
+  recipe(sale_price ~ .,
+         data = ames_train)
+```
+
+Now we can have a look at the **model**. We'll start with the random forest which has 3 hyper-parameters we can tune: `mtry`, `trees`, and `min_n`. For the engine, we'll use ranger which is a "fast implementation of random forests or recursive partitioning particularly suited for high dimensional data". It supports both classification and regression so we have to specify that we're doing regression!
+
+```{r}
+rf_model <-
+  rand_forest() %>%
+  set_engine("ranger") %>%
+  set_mode("regression")
+
+rf_model %>% translate()
+```
+
+Now it's time for the **workflow**. Workflow in Tidymodels helps us create an object that binds together the pre-processing, modeling, AND post-processing requests. This makes it much easier to oversee what exactly is going to happen in a model (when combined with a recipe) and additionally, we can use commands like `update_workflow()` for different models. 
+
+```{r}
+rf_wf <-
+  workflow() %>%
+  add_recipe(rf_recipe) %>%
+  add_model(rf_model)
+
+summary(rf_wf)
+```
+
+Lastly we **fit** and see what the metrics look like for the folds. This way we can see if we want to attempt trying it on the testing model or if we further want to adjust our hyper-parameters (maybe with a `grid`).
+
+```{r}
+set.seed(123)
+rf_fit <-
+  rf_wf %>%
+  fit_resamples(resamples = ames_folds)
+
+rf_fit %>%
+  collect_metrics()
+```
+
+The R^2^ looks *okay* for the training set - sitting at 0.83 and we have an RMSE of $32k. Let's see what it looks like on the testing data! I think we should have `log10`'d the `sale_price` but let's go ahead and test it on the testing data and then for model 2 I will use `log10`.
+
+### Predict
+```{r}
+set.seed(123)
+rf_last_fit <-
+  rf_wf %>%
+  last_fit(split = ames_split)
+```
+
+```{r}
+results <- rf_last_fit %>% 
+  collect_metrics()
+
+
+rf_last_fit %>%
+  collect_predictions() %>%
+  ggplot(aes(.pred, sale_price)) +
+  geom_abline(col = "green", lty = 2) +
+  geom_point(alpha = .4, colour = "midnightblue") +
+  annotate("text", x = Inf, y = Inf, hjust = 1.5, vjust = 2, 
+           label = paste("RMSE: ", round(results$.estimate[1], 4))) +
+  labs(title = "Random tree model",
+       subtitle = "No hyperparameters tuned, ranger engine") +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  scale_y_continuous(labels = scales::dollar_format())
+```
+
+The RMSE for the test set is \$33k which means that on average, the predictions are about 33k off the actuals. The R^2^ looks about similar to the training set though, and there's not SUCH a big difference between training and testing RMSE as to cause alarm. Now let's try something similar but with `log10`. I attempted to do the hyper-parameter tuning but the amount of time it takes (in terms of computing), I'd rather leave it to a future post. Let's log10 the `sale_price` column to see if that makes a difference.
+
+## Model 2
+We have already defined the model above and for now, won't edit any of the `args` so let's try and simply update our recipe and add that to our workflow. Let's have another look at how our recipe, `rf_recipe` is defined:
+
+```{r}
+rf_model
+rf_recipe
+```
+
+All I did initially was put in the formula (which I could've done with `add_formula` in workflow as there weren't any recipe stats) so I just need to add a step. Luckily, the `recipe` package has very straightforward function names so it should be clear.
+
+```{r}
+rf_log10_recipe <-
+  recipe(sale_price ~ .,
+         data = ames_train) %>%
+  step_log(sale_price, base = 10)
+```
+
+And now when I run `rf_log10_recipe` it should say what operation it's going to run once I've added it to the workflow and fitted it.
+
+```{r}
+rf_log10_recipe
+```
+
+In the course linked in the introduction, Julia demonstrates how easy it is to update existing workflows with `update_model()` and `update_recipe()`. In this case, I'm just updating the recipe so let's see how it works. 
+
+```{r}
+rf_log10_wf <- rf_wf %>%
+  update_recipe(rf_log10_recipe)
+```
+
+Now rather than having to go back and also add model to the workflow (and whatever else if we had a more complicated workflow), we simply call the updated recipe and then we are ready to fit another model. This makes it a lot easier to tune models repeatedly and to test them for accuracy.
+
+```{r}
+set.seed(123)
+rf_log10_fit <-
+  rf_log10_wf %>%
+  fit_resamples(resamples = ames_folds)
+
+rf_log10_fit %>%
+  collect_metrics()
+```
+
+The R^2^ has actually gone down a bit but well, the focus is on the routine, not the outcome (here)! Let's fit on the test set and see how it looks.
+
+```{r}
+set.seed(123)
+rf_log10_last_fit <-
+  rf_log10_wf %>%
+  last_fit(split = ames_split)
+```
+
+```{r}
+results_log10 <- rf_log10_last_fit %>% 
+  collect_metrics()
+
+rf_log10_last_fit %>%
+  collect_predictions() %>%
+  ggplot(aes(.pred, sale_price)) +
+  geom_abline(col = "green", lty = 2) +
+  geom_point(alpha = .4, colour = "midnightblue") +
+  annotate("text", x = Inf, y = Inf, hjust = 6.5, vjust = 2.5, 
+           label = paste("RMSE: ", round(results_log10$.estimate[1], 4))) +
+  labs(title = "Random tree model",
+       subtitle = "No hyperparameters tuned, ranger engine, log10 sale_price") +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  scale_y_continuous(labels = scales::dollar_format())
+```
+
+Unfortunately because we changed the parameters it's difficult to compare the two models. We could log10 the RMSE of the first model and see that it's 4.51 but that's not a good way. We could compare the R^2^ in which case the confidence in model 2 goes down as it's lower. Anyway, lastly I want to implement a linear model that is described on the Tidymodels blog. This one will also use `log10` so we CAN compare the RMSE.
+
+## Model 3
+I want to use `glmnet` which relies on regularization so will need to center and scale the predictors first. I'm updating the recipe AND the model this time so I'm not going to use `update_recipe()` or `update_model()`, I'll just create new ones altogether. 
+
+```{r}
+glm_rec <- 
+  recipe(sale_price ~.,
+         data = ames_train) %>%
+  step_other(neighborhood) %>%
+  step_dummy(all_nominal()) %>%
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors()) %>%
+  step_log(sale_price, base = 10)
+```
+
+A few additional things are added. First of all, `step_other()` is a great fallback step in case there is a category that appears in the test set but didn't appear in the training set. Usually this would throw an error but Tidymodels will automatically create a category called 'Other' for those. Then there's `step_dummy()` which converts our `neighborhood` and `overall_qual` columns to dummies. To see what the data looks like once it's been processed:
+
+```{r}
+juice(prep(glm_rec)) %>%
+  head(5)
+```
+
+Now let's go to step 2, creating the model:
+
+```{r}
+glm_model <-
+  linear_reg(penalty = 0.001, mixture = 0.5) %>%
+  set_engine("glmnet")
+```
+
+Step 3 and step 4, which is putting together the workflow and fitting the data:
+
+```{r}
+glm_wf <-
+  workflow() %>%
+  add_recipe(glm_rec) %>%
+  add_model(glm_model)
+
+set.seed(123)
+glm_fit <-
+  glm_wf %>%
+  fit_resamples(resamples = ames_folds)
+
+glm_fit %>%
+  collect_metrics()
+```
+
+And finally predict. Then we'll put together the metrics for the two models (and pretend the first one didn't happen..) and see whether the glmnet or the tree performed best.
+
+```{r}
+set.seed(123)
+glm_last_fit <-
+  glm_wf %>%
+  last_fit(split = ames_split)
+```
+
+```{r}
+results_glm <- glm_last_fit %>% 
+  collect_metrics()
+
+glm_last_fit %>%
+  collect_predictions() %>%
+  ggplot(aes(.pred, sale_price)) +
+  geom_abline(col = "green", lty = 2) +
+  geom_point(alpha = .4, colour = "midnightblue") +
+  annotate("text", x = Inf, y = Inf, hjust = 6.5, vjust = 2.5, 
+           label = paste("RMSE: ", round(results_log10$.estimate[1], 4))) +
+  labs(title = "Linear regression model",
+       subtitle = "Variety of steps in recipe, glmnet engine") +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  scale_y_continuous(labels = scales::dollar_format())
+```
+
+## Final
+Now let's simply combine the prediction data for the two models and plot them side-by-side so we can see which one has performed best:
+
+```{r}
+test_results <- rf_log10_last_fit %>%
+  collect_predictions() %>%
+  rename("rf" = .pred) %>%
+  bind_cols(
+    glm_last_fit %>%
+      collect_predictions() %>%
+      rename("glmnet" = .pred) %>%
+      select("glmnet")
+  ) %>%
+  select(-id, -.row)
+
+test_results %>%
+  gather(model, prediction, -sale_price) %>%
+  ggplot(aes(prediction, sale_price)) +
+  geom_abline(col = "green", lty = 2) +
+  geom_point(col = "midnightblue", alpha = .7) +
+  facet_wrap(~model) +
+  coord_fixed()
+```
+
+When putting them side-by-side it looks like the tree model performed just slightly better. That said, they both did alright. In conclusion, Tidymodels has made the process that `caret` helped introduce even better. It's very simple to fit a model, update a few steps, update the workflow, fit another model. Whilst in this article I used very simple models I can see it come to very good use when I'm trying to tune hyper-parameters with things like XGBoost!

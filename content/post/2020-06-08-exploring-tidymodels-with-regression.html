@@ -1,0 +1,338 @@
+---
+title: Exploring Tidymodels with regression
+author: Duncan
+date: '2020-06-08'
+slug: exploring-tidymodels-with-regression
+categories: [modeling, regression]
+tags: [modeling, regression, tidymodels]
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+<p>Learning the Tidymodels process and implementing some regression models to use as a reference in the future!
+<!--more--></p>
+<p>Most of the things below are learnt through materials provided by Julia Silge (<a href="https://supervised-ml-course.netlify.app/">her course</a>) and Alison Hill’s course <a href="https://alison.rbind.io/">at rstudio::conf(2020)</a>. It’s mainly to have a reference for myself in terms of what the Tidymodels workflow is as it makes modeling much easier. I’m not aiming for accuracy of models here (and the comparisons are not great when using RMSE considering different processes), instead, I just want to document the Tidymodels process so I can easily implement it in the future.</p>
+<div id="explore" class="section level2">
+<h2>Explore</h2>
+<p>Let’s have a look at the data - I don’t want to do too much data manipulation here as want to focus on the aspect of a simple Tidymodels workflow!</p>
+<pre class="r"><code>ames %&gt;%
+  head(5)
+#&gt; # A tibble: 5 x 81
+#&gt;   MS_SubClass MS_Zoning Lot_Frontage Lot_Area Street Alley Lot_Shape
+#&gt;   &lt;fct&gt;       &lt;fct&gt;            &lt;dbl&gt;    &lt;int&gt; &lt;fct&gt;  &lt;fct&gt; &lt;fct&gt;    
+#&gt; 1 One_Story_~ Resident~          141    31770 Pave   No_A~ Slightly~
+#&gt; 2 One_Story_~ Resident~           80    11622 Pave   No_A~ Regular  
+#&gt; 3 One_Story_~ Resident~           81    14267 Pave   No_A~ Slightly~
+#&gt; 4 One_Story_~ Resident~           93    11160 Pave   No_A~ Regular  
+#&gt; 5 Two_Story_~ Resident~           74    13830 Pave   No_A~ Slightly~
+#&gt; # ... with 74 more variables: Land_Contour &lt;fct&gt;, Utilities &lt;fct&gt;,
+#&gt; #   Lot_Config &lt;fct&gt;, Land_Slope &lt;fct&gt;, Neighborhood &lt;fct&gt;, Condition_1 &lt;fct&gt;,
+#&gt; #   Condition_2 &lt;fct&gt;, Bldg_Type &lt;fct&gt;, House_Style &lt;fct&gt;, Overall_Qual &lt;fct&gt;,
+#&gt; #   Overall_Cond &lt;fct&gt;, Year_Built &lt;int&gt;, Year_Remod_Add &lt;int&gt;,
+#&gt; #   Roof_Style &lt;fct&gt;, Roof_Matl &lt;fct&gt;, Exterior_1st &lt;fct&gt;, Exterior_2nd &lt;fct&gt;,
+#&gt; #   Mas_Vnr_Type &lt;fct&gt;, Mas_Vnr_Area &lt;dbl&gt;, Exter_Qual &lt;fct&gt;, Exter_Cond &lt;fct&gt;,
+#&gt; #   Foundation &lt;fct&gt;, Bsmt_Qual &lt;fct&gt;, Bsmt_Cond &lt;fct&gt;, Bsmt_Exposure &lt;fct&gt;,
+#&gt; #   BsmtFin_Type_1 &lt;fct&gt;, BsmtFin_SF_1 &lt;dbl&gt;, BsmtFin_Type_2 &lt;fct&gt;,
+#&gt; #   BsmtFin_SF_2 &lt;dbl&gt;, Bsmt_Unf_SF &lt;dbl&gt;, Total_Bsmt_SF &lt;dbl&gt;, Heating &lt;fct&gt;,
+#&gt; #   Heating_QC &lt;fct&gt;, Central_Air &lt;fct&gt;, Electrical &lt;fct&gt;, First_Flr_SF &lt;int&gt;,
+#&gt; #   Second_Flr_SF &lt;int&gt;, Low_Qual_Fin_SF &lt;int&gt;, Gr_Liv_Area &lt;int&gt;,
+#&gt; #   Bsmt_Full_Bath &lt;dbl&gt;, Bsmt_Half_Bath &lt;dbl&gt;, Full_Bath &lt;int&gt;,
+#&gt; #   Half_Bath &lt;int&gt;, Bedroom_AbvGr &lt;int&gt;, Kitchen_AbvGr &lt;int&gt;,
+#&gt; #   Kitchen_Qual &lt;fct&gt;, TotRms_AbvGrd &lt;int&gt;, Functional &lt;fct&gt;,
+#&gt; #   Fireplaces &lt;int&gt;, Fireplace_Qu &lt;fct&gt;, Garage_Type &lt;fct&gt;,
+#&gt; #   Garage_Finish &lt;fct&gt;, Garage_Cars &lt;dbl&gt;, Garage_Area &lt;dbl&gt;,
+#&gt; #   Garage_Qual &lt;fct&gt;, Garage_Cond &lt;fct&gt;, Paved_Drive &lt;fct&gt;,
+#&gt; #   Wood_Deck_SF &lt;int&gt;, Open_Porch_SF &lt;int&gt;, Enclosed_Porch &lt;int&gt;,
+#&gt; #   Three_season_porch &lt;int&gt;, Screen_Porch &lt;int&gt;, Pool_Area &lt;int&gt;,
+#&gt; #   Pool_QC &lt;fct&gt;, Fence &lt;fct&gt;, Misc_Feature &lt;fct&gt;, Misc_Val &lt;int&gt;,
+#&gt; #   Mo_Sold &lt;int&gt;, Year_Sold &lt;int&gt;, Sale_Type &lt;fct&gt;, Sale_Condition &lt;fct&gt;,
+#&gt; #   Sale_Price &lt;int&gt;, Longitude &lt;dbl&gt;, Latitude &lt;dbl&gt;</code></pre>
+<p>Immediately the amount of columns jumps out. I will start with cleaning the names and, because I think there’s going to be quite a lot of overlap between some of the variables, I’m going to select some that I think will be useful in predicting house price. Just glimpsing over the data, let’s keep <code>longitude</code>, <code>latitude</code>, <code>lot_area</code>, <code>neighborhood</code> (though may overlap with long / lat), <code>year_sold</code> and <code>overall_qual</code>.</p>
+<pre class="r"><code>ames_e &lt;- ames %&gt;%
+  janitor::clean_names() %&gt;%
+  select(longitude, latitude, lot_area,
+         neighborhood, year_sold, overall_qual, sale_price)
+
+glimpse(ames_e)
+#&gt; Rows: 2,930
+#&gt; Columns: 7
+#&gt; $ longitude    &lt;dbl&gt; -93.61975, -93.61976, -93.61939, -93.61732, -93.63893,...
+#&gt; $ latitude     &lt;dbl&gt; 42.05403, 42.05301, 42.05266, 42.05125, 42.06090, 42.0...
+#&gt; $ lot_area     &lt;int&gt; 31770, 11622, 14267, 11160, 13830, 9978, 4920, 5005, 5...
+#&gt; $ neighborhood &lt;fct&gt; North_Ames, North_Ames, North_Ames, North_Ames, Gilber...
+#&gt; $ year_sold    &lt;int&gt; 2010, 2010, 2010, 2010, 2010, 2010, 2010, 2010, 2010, ...
+#&gt; $ overall_qual &lt;fct&gt; Above_Average, Average, Above_Average, Good, Average, ...
+#&gt; $ sale_price   &lt;int&gt; 215000, 105000, 172000, 244000, 189900, 195500, 213500...</code></pre>
+<p>Let’s plot distribution of sale_price to see if it there’s anything weird going on:</p>
+<pre class="r"><code>ggplot(ames_e, aes(sale_price)) +
+  geom_histogram(bins = 30, alpha = .6, fill = &quot;midnightblue&quot;) +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  theme_ipsum_rc() +
+  labs(y = NULL,
+       x = &quot;Cost&quot;,
+       title = &quot;Distribution of house prices in Ames&quot;)</code></pre>
+<p><img src="/post/2020-06-08-exploring-tidymodels-with-regression_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>We can see there are a few extreme cases where house prices are &gt; $400k. Additionally, because of the high numbers, it might be good to log10 but I will try without first. It is interesting to me though that these are mainly in one neighbourhood (Northridge Heights) but when looking at the distribution of that specific neighbourhood, it is still similar to that of the overall dataset!</p>
+<p>Anyway, there is not much else to explore here. Instead, let’s look at the Tidymodel process.</p>
+</div>
+<div id="model-1" class="section level2">
+<h2>Model 1</h2>
+<p>I’m only going to be using regression models for this article and the aim is to see if we can predict house prices based on the predictors we picked. I’ll start by splitting the data and also create some folds so we don’t have to touch the testing data until later.</p>
+<div id="splitting" class="section level3">
+<h3>Splitting</h3>
+<pre class="r"><code>ames_split &lt;- initial_split(ames_e)
+ames_train &lt;- training(ames_split)
+ames_test &lt;- testing(ames_split)
+
+set.seed(123)
+ames_folds &lt;- vfold_cv(ames_train)</code></pre>
+<p>Need to remember that the general approach to Tidymodels is:</p>
+<ol style="list-style-type: decimal">
+<li><p>Recipe</p></li>
+<li><p>Model</p></li>
+<li><p>Workflow</p></li>
+<li><p>Fit</p></li>
+<li><p>Repeat</p></li>
+</ol>
+<p>In terms of <strong>recipe</strong>, I don’t think there is much to do here currently. We may have to specify a recipe to <em>log</em> our <code>sale_price</code> variable but let’s try it without first. Usually though, a recipe can allow us to define many steps that make things like normalising / centering data easier. Can also help with zero variables.</p>
+<pre class="r"><code>rf_recipe &lt;-
+  recipe(sale_price ~ .,
+         data = ames_train)</code></pre>
+<p>Now we can have a look at the <strong>model</strong>. We’ll start with the random forest which has 3 hyper-parameters we can tune: <code>mtry</code>, <code>trees</code>, and <code>min_n</code>. For the engine, we’ll use ranger which is a “fast implementation of random forests or recursive partitioning particularly suited for high dimensional data”. It supports both classification and regression so we have to specify that we’re doing regression!</p>
+<pre class="r"><code>rf_model &lt;-
+  rand_forest() %&gt;%
+  set_engine(&quot;ranger&quot;) %&gt;%
+  set_mode(&quot;regression&quot;)
+
+rf_model %&gt;% translate()
+#&gt; Random Forest Model Specification (regression)
+#&gt; 
+#&gt; Computational engine: ranger 
+#&gt; 
+#&gt; Model fit template:
+#&gt; ranger::ranger(formula = missing_arg(), data = missing_arg(), 
+#&gt;     case.weights = missing_arg(), num.threads = 1, verbose = FALSE, 
+#&gt;     seed = sample.int(10^5, 1))</code></pre>
+<p>Now it’s time for the <strong>workflow</strong>. Workflow in Tidymodels helps us create an object that binds together the pre-processing, modeling, AND post-processing requests. This makes it much easier to oversee what exactly is going to happen in a model (when combined with a recipe) and additionally, we can use commands like <code>update_workflow()</code> for different models.</p>
+<pre class="r"><code>rf_wf &lt;-
+  workflow() %&gt;%
+  add_recipe(rf_recipe) %&gt;%
+  add_model(rf_model)
+
+summary(rf_wf)
+#&gt;         Length Class      Mode   
+#&gt; pre     2      stage_pre  list   
+#&gt; fit     2      stage_fit  list   
+#&gt; post    1      stage_post list   
+#&gt; trained 1      -none-     logical</code></pre>
+<p>Lastly we <strong>fit</strong> and see what the metrics look like for the folds. This way we can see if we want to attempt trying it on the testing model or if we further want to adjust our hyper-parameters (maybe with a <code>grid</code>).</p>
+<pre class="r"><code>set.seed(123)
+rf_fit &lt;-
+  rf_wf %&gt;%
+  fit_resamples(resamples = ames_folds)
+
+rf_fit %&gt;%
+  collect_metrics()
+#&gt; # A tibble: 2 x 5
+#&gt;   .metric .estimator      mean     n   std_err
+#&gt;   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt; &lt;int&gt;     &lt;dbl&gt;
+#&gt; 1 rmse    standard   32578.       10 1171.    
+#&gt; 2 rsq     standard       0.835    10    0.0111</code></pre>
+<p>The R<sup>2</sup> looks <em>okay</em> for the training set - sitting at 0.83 and we have an RMSE of $32k. Let’s see what it looks like on the testing data! I think we should have <code>log10</code>’d the <code>sale_price</code> but let’s go ahead and test it on the testing data and then for model 2 I will use <code>log10</code>.</p>
+</div>
+<div id="predict" class="section level3">
+<h3>Predict</h3>
+<pre class="r"><code>set.seed(123)
+rf_last_fit &lt;-
+  rf_wf %&gt;%
+  last_fit(split = ames_split)</code></pre>
+<pre class="r"><code>results &lt;- rf_last_fit %&gt;% 
+  collect_metrics()
+
+
+rf_last_fit %&gt;%
+  collect_predictions() %&gt;%
+  ggplot(aes(.pred, sale_price)) +
+  geom_abline(col = &quot;green&quot;, lty = 2) +
+  geom_point(alpha = .4, colour = &quot;midnightblue&quot;) +
+  annotate(&quot;text&quot;, x = Inf, y = Inf, hjust = 1.5, vjust = 2, 
+           label = paste(&quot;RMSE: &quot;, round(results$.estimate[1], 4))) +
+  labs(title = &quot;Random tree model&quot;,
+       subtitle = &quot;No hyperparameters tuned, ranger engine&quot;) +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  scale_y_continuous(labels = scales::dollar_format())</code></pre>
+<p><img src="/post/2020-06-08-exploring-tidymodels-with-regression_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
+<p>The RMSE for the test set is $33k which means that on average, the predictions are about 33k off the actuals. The R<sup>2</sup> looks about similar to the training set though, and there’s not SUCH a big difference between training and testing RMSE as to cause alarm. Now let’s try something similar but with <code>log10</code>. I attempted to do the hyper-parameter tuning but the amount of time it takes (in terms of computing), I’d rather leave it to a future post. Let’s log10 the <code>sale_price</code> column to see if that makes a difference.</p>
+</div>
+</div>
+<div id="model-2" class="section level2">
+<h2>Model 2</h2>
+<p>We have already defined the model above and for now, won’t edit any of the <code>args</code> so let’s try and simply update our recipe and add that to our workflow. Let’s have another look at how our recipe, <code>rf_recipe</code> is defined:</p>
+<pre class="r"><code>rf_model
+#&gt; Random Forest Model Specification (regression)
+#&gt; 
+#&gt; Computational engine: ranger
+rf_recipe
+#&gt; Data Recipe
+#&gt; 
+#&gt; Inputs:
+#&gt; 
+#&gt;       role #variables
+#&gt;    outcome          1
+#&gt;  predictor          6</code></pre>
+<p>All I did initially was put in the formula (which I could’ve done with <code>add_formula</code> in workflow as there weren’t any recipe stats) so I just need to add a step. Luckily, the <code>recipe</code> package has very straightforward function names so it should be clear.</p>
+<pre class="r"><code>rf_log10_recipe &lt;-
+  recipe(sale_price ~ .,
+         data = ames_train) %&gt;%
+  step_log(sale_price, base = 10)</code></pre>
+<p>And now when I run <code>rf_log10_recipe</code> it should say what operation it’s going to run once I’ve added it to the workflow and fitted it.</p>
+<pre class="r"><code>rf_log10_recipe
+#&gt; Data Recipe
+#&gt; 
+#&gt; Inputs:
+#&gt; 
+#&gt;       role #variables
+#&gt;    outcome          1
+#&gt;  predictor          6
+#&gt; 
+#&gt; Operations:
+#&gt; 
+#&gt; Log transformation on sale_price</code></pre>
+<p>In the course linked in the introduction, Julia demonstrates how easy it is to update existing workflows with <code>update_model()</code> and <code>update_recipe()</code>. In this case, I’m just updating the recipe so let’s see how it works.</p>
+<pre class="r"><code>rf_log10_wf &lt;- rf_wf %&gt;%
+  update_recipe(rf_log10_recipe)</code></pre>
+<p>Now rather than having to go back and also add model to the workflow (and whatever else if we had a more complicated workflow), we simply call the updated recipe and then we are ready to fit another model. This makes it a lot easier to tune models repeatedly and to test them for accuracy.</p>
+<pre class="r"><code>set.seed(123)
+rf_log10_fit &lt;-
+  rf_log10_wf %&gt;%
+  fit_resamples(resamples = ames_folds)
+
+rf_log10_fit %&gt;%
+  collect_metrics()
+#&gt; # A tibble: 2 x 5
+#&gt;   .metric .estimator   mean     n std_err
+#&gt;   &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt;
+#&gt; 1 rmse    standard   0.0777    10 0.00227
+#&gt; 2 rsq     standard   0.810     10 0.0105</code></pre>
+<p>The R<sup>2</sup> has actually gone down a bit but well, the focus is on the routine, not the outcome (here)! Let’s fit on the test set and see how it looks.</p>
+<pre class="r"><code>set.seed(123)
+rf_log10_last_fit &lt;-
+  rf_log10_wf %&gt;%
+  last_fit(split = ames_split)</code></pre>
+<pre class="r"><code>results_log10 &lt;- rf_log10_last_fit %&gt;% 
+  collect_metrics()
+
+rf_log10_last_fit %&gt;%
+  collect_predictions() %&gt;%
+  ggplot(aes(.pred, sale_price)) +
+  geom_abline(col = &quot;green&quot;, lty = 2) +
+  geom_point(alpha = .4, colour = &quot;midnightblue&quot;) +
+  annotate(&quot;text&quot;, x = Inf, y = Inf, hjust = 6.5, vjust = 2.5, 
+           label = paste(&quot;RMSE: &quot;, round(results_log10$.estimate[1], 4))) +
+  labs(title = &quot;Random tree model&quot;,
+       subtitle = &quot;No hyperparameters tuned, ranger engine, log10 sale_price&quot;) +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  scale_y_continuous(labels = scales::dollar_format())</code></pre>
+<p><img src="/post/2020-06-08-exploring-tidymodels-with-regression_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
+<p>Unfortunately because we changed the parameters it’s difficult to compare the two models. We could log10 the RMSE of the first model and see that it’s 4.51 but that’s not a good way. We could compare the R<sup>2</sup> in which case the confidence in model 2 goes down as it’s lower. Anyway, lastly I want to implement a linear model that is described on the Tidymodels blog. This one will also use <code>log10</code> so we CAN compare the RMSE.</p>
+</div>
+<div id="model-3" class="section level2">
+<h2>Model 3</h2>
+<p>I want to use <code>glmnet</code> which relies on regularization so will need to center and scale the predictors first. I’m updating the recipe AND the model this time so I’m not going to use <code>update_recipe()</code> or <code>update_model()</code>, I’ll just create new ones altogether.</p>
+<pre class="r"><code>glm_rec &lt;- 
+  recipe(sale_price ~.,
+         data = ames_train) %&gt;%
+  step_other(neighborhood) %&gt;%
+  step_dummy(all_nominal()) %&gt;%
+  step_center(all_predictors()) %&gt;%
+  step_scale(all_predictors()) %&gt;%
+  step_log(sale_price, base = 10)</code></pre>
+<p>A few additional things are added. First of all, <code>step_other()</code> is a great fallback step in case there is a category that appears in the test set but didn’t appear in the training set. Usually this would throw an error but Tidymodels will automatically create a category called ‘Other’ for those. Then there’s <code>step_dummy()</code> which converts our <code>neighborhood</code> and <code>overall_qual</code> columns to dummies. To see what the data looks like once it’s been processed:</p>
+<pre class="r"><code>juice(prep(glm_rec)) %&gt;%
+  head(5)
+#&gt; # A tibble: 5 x 22
+#&gt;   longitude latitude lot_area year_sold sale_price neighborhood_Co~
+#&gt;       &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt;      &lt;dbl&gt;            &lt;dbl&gt;
+#&gt; 1     0.905    1.06     2.68       1.65       5.33           -0.317
+#&gt; 2     0.905    1.00     0.186      1.65       5.02           -0.317
+#&gt; 3     0.920    0.983    0.513      1.65       5.24           -0.317
+#&gt; 4     1.00     0.905    0.129      1.65       5.39           -0.317
+#&gt; 5     0.155    1.43     0.459      1.65       5.28           -0.317
+#&gt; # ... with 16 more variables: neighborhood_Old_Town &lt;dbl&gt;,
+#&gt; #   neighborhood_Edwards &lt;dbl&gt;, neighborhood_Somerset &lt;dbl&gt;,
+#&gt; #   neighborhood_Northridge_Heights &lt;dbl&gt;, neighborhood_Gilbert &lt;dbl&gt;,
+#&gt; #   neighborhood_Sawyer &lt;dbl&gt;, neighborhood_other &lt;dbl&gt;,
+#&gt; #   overall_qual_Poor &lt;dbl&gt;, overall_qual_Fair &lt;dbl&gt;,
+#&gt; #   overall_qual_Below_Average &lt;dbl&gt;, overall_qual_Average &lt;dbl&gt;,
+#&gt; #   overall_qual_Above_Average &lt;dbl&gt;, overall_qual_Good &lt;dbl&gt;,
+#&gt; #   overall_qual_Very_Good &lt;dbl&gt;, overall_qual_Excellent &lt;dbl&gt;,
+#&gt; #   overall_qual_Very_Excellent &lt;dbl&gt;</code></pre>
+<p>Now let’s go to step 2, creating the model:</p>
+<pre class="r"><code>glm_model &lt;-
+  linear_reg(penalty = 0.001, mixture = 0.5) %&gt;%
+  set_engine(&quot;glmnet&quot;)</code></pre>
+<p>Step 3 and step 4, which is putting together the workflow and fitting the data:</p>
+<pre class="r"><code>glm_wf &lt;-
+  workflow() %&gt;%
+  add_recipe(glm_rec) %&gt;%
+  add_model(glm_model)
+
+set.seed(123)
+glm_fit &lt;-
+  glm_wf %&gt;%
+  fit_resamples(resamples = ames_folds)
+
+glm_fit %&gt;%
+  collect_metrics()
+#&gt; # A tibble: 2 x 5
+#&gt;   .metric .estimator   mean     n std_err
+#&gt;   &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt;
+#&gt; 1 rmse    standard   0.0944    10 0.00256
+#&gt; 2 rsq     standard   0.718     10 0.0161</code></pre>
+<p>And finally predict. Then we’ll put together the metrics for the two models (and pretend the first one didn’t happen..) and see whether the glmnet or the tree performed best.</p>
+<pre class="r"><code>set.seed(123)
+glm_last_fit &lt;-
+  glm_wf %&gt;%
+  last_fit(split = ames_split)</code></pre>
+<pre class="r"><code>results_glm &lt;- glm_last_fit %&gt;% 
+  collect_metrics()
+
+glm_last_fit %&gt;%
+  collect_predictions() %&gt;%
+  ggplot(aes(.pred, sale_price)) +
+  geom_abline(col = &quot;green&quot;, lty = 2) +
+  geom_point(alpha = .4, colour = &quot;midnightblue&quot;) +
+  annotate(&quot;text&quot;, x = Inf, y = Inf, hjust = 6.5, vjust = 2.5, 
+           label = paste(&quot;RMSE: &quot;, round(results_log10$.estimate[1], 4))) +
+  labs(title = &quot;Linear regression model&quot;,
+       subtitle = &quot;Variety of steps in recipe, glmnet engine&quot;) +
+  scale_x_continuous(labels = scales::dollar_format()) +
+  scale_y_continuous(labels = scales::dollar_format())</code></pre>
+<p><img src="/post/2020-06-08-exploring-tidymodels-with-regression_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
+</div>
+<div id="final" class="section level2">
+<h2>Final</h2>
+<p>Now let’s simply combine the prediction data for the two models and plot them side-by-side so we can see which one has performed best:</p>
+<pre class="r"><code>test_results &lt;- rf_log10_last_fit %&gt;%
+  collect_predictions() %&gt;%
+  rename(&quot;rf&quot; = .pred) %&gt;%
+  bind_cols(
+    glm_last_fit %&gt;%
+      collect_predictions() %&gt;%
+      rename(&quot;glmnet&quot; = .pred) %&gt;%
+      select(&quot;glmnet&quot;)
+  ) %&gt;%
+  select(-id, -.row)
+
+test_results %&gt;%
+  gather(model, prediction, -sale_price) %&gt;%
+  ggplot(aes(prediction, sale_price)) +
+  geom_abline(col = &quot;green&quot;, lty = 2) +
+  geom_point(col = &quot;midnightblue&quot;, alpha = .7) +
+  facet_wrap(~model) +
+  coord_fixed()</code></pre>
+<p><img src="/post/2020-06-08-exploring-tidymodels-with-regression_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
+<p>When putting them side-by-side it looks like the tree model performed just slightly better. That said, they both did alright. In conclusion, Tidymodels has made the process that <code>caret</code> helped introduce even better. It’s very simple to fit a model, update a few steps, update the workflow, fit another model. Whilst in this article I used very simple models I can see it come to very good use when I’m trying to tune hyper-parameters with things like XGBoost!</p>
+</div>
