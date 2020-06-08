@@ -1,0 +1,16 @@
+{{ if .IsHome }}
+  <title>"Duncan Pastoors"</title>
+  {{ with .Site.Params.description }}
+  <meta name="description" content="{{ . }}" />
+  {{ end }}
+{{ else if .IsNode}}
+  <title>{{ .Title }}</title>
+  {{ with .Site.Params.description }}
+  <meta name="description" content="{{ . }}" />
+  {{ end }}
+{{ else }}
+  <title>{{ .Title }}</title>
+  <meta
+     name="description"
+     content="{{ if .Params.description }}{{ .Params.description }}{{ end }}"/>
+{{ end }}

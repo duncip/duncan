@@ -1,5 +1,6 @@
 ---
 title: Exploring Tidymodels with regression
+description: Learning the Tidymodels process and implementing some regression models to use as a reference in the future
 author: Duncan
 date: '2020-06-08'
 slug: exploring-tidymodels-with-regression

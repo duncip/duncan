@@ -28,6 +28,7 @@ pygmentsUseClasses = true
 [params]
   mainSections = ["post"]
   favicon = "favicon.ico"
+  Description = "A place where I document my learning of R. Mostly focus on doing the TidyTuesday challenges using Tidymodels principles and random courses."
 
   [params.logo]
     url = "dp_logo.png"

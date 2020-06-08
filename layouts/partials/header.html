@@ -7,7 +7,7 @@
 {{ else }}
   {{ $.Scratch.Set "title" .Title }}
 {{ end }}
-
+{{ partial "gtm_body.html" . }}
 {{ $title := $.Scratch.Get "title" }}
 {{ if $title }}
   <header>
