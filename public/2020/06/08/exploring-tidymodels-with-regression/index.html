@@ -24,9 +24,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="alternate" type="application/rss+xml" href="https://duncip.netlify.app/index.xml" title="Duncan Pastoors">
 
+
+<link rel="stylesheet" href="https://duncip.netlify.app/fontawesome/css/fontawesome.css" />
+<link rel="stylesheet" href="https://duncip.netlify.app/fontawesome/css/brands.css" />
+<link rel="stylesheet" href="https://duncip.netlify.app/fontawesome/css/solid.css" />
+
 <link rel="stylesheet" href="https://duncip.netlify.app/css/dp-styles.css" />
 <link rel="stylesheet" href="https://duncip.netlify.app/css/main.css" />
-<link rel="stylesheet" href="https://duncip.netlify.app/fontawesome/css/all.min.css" />
 
 <script src="https://duncip.netlify.app/js/bundle.js"></script>
 <script src="https://duncip.netlify.app/js/instantpage.js" type="module" defer></script>
@@ -225,8 +229,8 @@ rf_fit %&gt;%
 #&gt; # A tibble: 2 x 5
 #&gt;   .metric .estimator      mean     n  std_err
 #&gt;   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt; &lt;int&gt;    &lt;dbl&gt;
-#&gt; 1 rmse    standard   32202.       10 780.    
-#&gt; 2 rsq     standard       0.839    10   0.0110</code></pre>
+#&gt; 1 rmse    standard   32527.       10 962.    
+#&gt; 2 rsq     standard       0.832    10   0.0103</code></pre>
 <p>The R<sup>2</sup> looks <em>okay</em> for the training set - sitting at 0.83 and we have an RMSE of $32k. Let’s see what it looks like on the testing data! I think we should have <code>log10</code>’d the <code>sale_price</code> but let’s go ahead and test it on the testing data and then for model 2 I will use <code>log10</code>.</p>
 </div>
 <div id="predict" class="section level3">
@@ -301,8 +305,8 @@ rf_log10_fit %&gt;%
 #&gt; # A tibble: 2 x 5
 #&gt;   .metric .estimator   mean     n std_err
 #&gt;   &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt;
-#&gt; 1 rmse    standard   0.0781    10 0.00338
-#&gt; 2 rsq     standard   0.810     10 0.0134</code></pre>
+#&gt; 1 rmse    standard   0.0762    10 0.00209
+#&gt; 2 rsq     standard   0.811     10 0.00797</code></pre>
 <p>The R<sup>2</sup> has actually gone down a bit but well, the focus is on the routine, not the outcome (here)! Let’s fit on the test set and see how it looks.</p>
 <pre class="r"><code>set.seed(123)
 rf_log10_last_fit &lt;-
@@ -316,7 +320,7 @@ rf_log10_last_fit %&gt;%
   ggplot(aes(.pred, sale_price)) +
   geom_abline(col = &quot;green&quot;, lty = 2) +
   geom_point(alpha = .4, colour = &quot;midnightblue&quot;) +
-  annotate(&quot;text&quot;, x = Inf, y = Inf, hjust = 6.5, vjust = 2.5, 
+  annotate(&quot;text&quot;, x = Inf, y = Inf, hjust = 1.5, vjust = 2.5, 
            label = paste(&quot;RMSE: &quot;, round(results_log10$.estimate[1], 4))) +
   labs(title = &quot;Random tree model&quot;,
        subtitle = &quot;No hyperparameters tuned, ranger engine, log10 sale_price&quot;) +
@@ -342,11 +346,11 @@ rf_log10_last_fit %&gt;%
 #&gt; # A tibble: 5 x 22
 #&gt;   longitude latitude lot_area year_sold sale_price neighborhood_Co~
 #&gt;       &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt;      &lt;dbl&gt;            &lt;dbl&gt;
-#&gt; 1     0.899    1.07    2.48        1.69       5.33           -0.318
-#&gt; 2     0.899    1.02    0.160       1.69       5.02           -0.318
-#&gt; 3     0.913    0.999   0.465       1.69       5.24           -0.318
-#&gt; 4     0.154    1.45    0.415       1.69       5.28           -0.318
-#&gt; 5     0.155    1.44   -0.0298      1.69       5.29           -0.318
+#&gt; 1     0.894    1.06    3.01        1.69       5.33           -0.315
+#&gt; 2     0.894    1.00    0.216       1.69       5.02           -0.315
+#&gt; 3     0.908    0.985   0.582       1.69       5.24           -0.315
+#&gt; 4     0.147    1.44    0.522       1.69       5.28           -0.315
+#&gt; 5     0.147    1.43   -0.0114      1.69       5.29           -0.315
 #&gt; # ... with 16 more variables: neighborhood_Old_Town &lt;dbl&gt;,
 #&gt; #   neighborhood_Edwards &lt;dbl&gt;, neighborhood_Somerset &lt;dbl&gt;,
 #&gt; #   neighborhood_Northridge_Heights &lt;dbl&gt;, neighborhood_Gilbert &lt;dbl&gt;,
@@ -376,8 +380,8 @@ glm_fit %&gt;%
 #&gt; # A tibble: 2 x 5
 #&gt;   .metric .estimator   mean     n std_err
 #&gt;   &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt;
-#&gt; 1 rmse    standard   0.0970    10 0.00410
-#&gt; 2 rsq     standard   0.703     10 0.0231</code></pre>
+#&gt; 1 rmse    standard   0.0939    10 0.00364
+#&gt; 2 rsq     standard   0.714     10 0.0203</code></pre>
 <p>And finally predict. Then we’ll put together the metrics for the two models (and pretend the first one didn’t happen..) and see whether the glmnet or the tree performed best.</p>
 <pre class="r"><code>set.seed(123)
 glm_last_fit &lt;-
@@ -391,8 +395,8 @@ glm_last_fit %&gt;%
   ggplot(aes(.pred, sale_price)) +
   geom_abline(col = &quot;green&quot;, lty = 2) +
   geom_point(alpha = .4, colour = &quot;midnightblue&quot;) +
-  annotate(&quot;text&quot;, x = Inf, y = Inf, hjust = 6.5, vjust = 2.5, 
-           label = paste(&quot;RMSE: &quot;, round(results_log10$.estimate[1], 4))) +
+  annotate(&quot;text&quot;, x = Inf, y = Inf, hjust = 1.5, vjust = 2.5, 
+           label = paste(&quot;RMSE: &quot;, round(results_glm$.estimate[1], 4))) +
   labs(title = &quot;Linear regression model&quot;,
        subtitle = &quot;Variety of steps in recipe, glmnet engine&quot;) +
   scale_x_continuous(labels = scales::dollar_format()) +

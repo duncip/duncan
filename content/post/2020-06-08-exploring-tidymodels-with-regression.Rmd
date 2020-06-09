@@ -225,7 +225,7 @@ rf_log10_last_fit %>%
   ggplot(aes(.pred, sale_price)) +
   geom_abline(col = "green", lty = 2) +
   geom_point(alpha = .4, colour = "midnightblue") +
-  annotate("text", x = Inf, y = Inf, hjust = 6.5, vjust = 2.5, 
+  annotate("text", x = Inf, y = Inf, hjust = 1.5, vjust = 2.5, 
            label = paste("RMSE: ", round(results_log10$.estimate[1], 4))) +
   labs(title = "Random tree model",
        subtitle = "No hyperparameters tuned, ranger engine, log10 sale_price") +
@@ -299,8 +299,8 @@ glm_last_fit %>%
   ggplot(aes(.pred, sale_price)) +
   geom_abline(col = "green", lty = 2) +
   geom_point(alpha = .4, colour = "midnightblue") +
-  annotate("text", x = Inf, y = Inf, hjust = 6.5, vjust = 2.5, 
-           label = paste("RMSE: ", round(results_log10$.estimate[1], 4))) +
+  annotate("text", x = Inf, y = Inf, hjust = 1.5, vjust = 2.5, 
+           label = paste("RMSE: ", round(results_glm$.estimate[1], 4))) +
   labs(title = "Linear regression model",
        subtitle = "Variety of steps in recipe, glmnet engine") +
   scale_x_continuous(labels = scales::dollar_format()) +
