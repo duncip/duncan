@@ -1,7 +1,7 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 	<channel>
 		<title>modeling on Duncan Pastoors</title>
-		<link>https://duncip.netlify.app/categories/modeling/</link>
+		<link>/categories/modeling.html</link>
 		<description>Recent content in modeling on Duncan Pastoors</description>
 		<generator>Hugo -- gohugo.io</generator>
 		
@@ -11,17 +11,29 @@
     	
   		<lastBuildDate>Mon, 08 Jun 2020 00:00:00 +0000</lastBuildDate>
 		
-		<atom:link href="https://duncip.netlify.app/categories/modeling/" rel="self" type="application/rss+xml" />
+		<atom:link href="/categories/modeling.html" rel="self" type="application/rss+xml" />
 		
 		<item>
 			<title>Exploring Tidymodels with regression</title>
-			<link>https://duncip.netlify.app/2020/06/08/exploring-tidymodels-with-regression/</link>
+			<link>/2020/06/08/exploring-tidymodels-with-regression.html</link>
 			<pubDate>Mon, 08 Jun 2020 00:00:00 +0000</pubDate>
-			<guid>https://duncip.netlify.app/2020/06/08/exploring-tidymodels-with-regression/</guid>
+			<guid>/2020/06/08/exploring-tidymodels-with-regression.html</guid>
 			<description>
 
 
 &lt;p&gt;Learning the Tidymodels process and implementing some regression models to use as a reference in the future!
+</description>
+		</item>
+      	
+		<item>
+			<title>Broadway continues to rise..</title>
+			<link>/2020/05/10/broadway-continues-to-rise.html</link>
+			<pubDate>Sun, 10 May 2020 00:00:00 +0000</pubDate>
+			<guid>/2020/05/10/broadway-continues-to-rise.html</guid>
+			<description>
+
+
+&lt;p&gt;Taking a look at how Broadway shows have been performing in the latest TidyTuesday
 </description>
 		</item>
       	

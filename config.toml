@@ -9,6 +9,8 @@ footnoteReturnLinkContents = "^"
 ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown$", "_files$", "_cache$"]
 custom_css = ["dp-styles.css"]
 pygmentsUseClasses = true
+uglyurls = true
+
 
 [Author]
   name = "duncan pastoors"

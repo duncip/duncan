@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+
+  <title>Broadway continues to rise..</title>
+  <meta
+     name="description"
+     content="Taking a look at how Broadway shows have been performing in the latest TidyTuesday"/>
+
+
+<script>
+  (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-KK6SXDK');
+</script>
+  
+
+
+
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="alternate" type="application/rss+xml" href="/index.xml" title="Duncan Pastoors">
+
+
+<link rel="stylesheet" href="/fontawesome/css/fontawesome.css" />
+<link rel="stylesheet" href="/fontawesome/css/brands.css" />
+<link rel="stylesheet" href="/fontawesome/css/solid.css" />
+
+<link rel="stylesheet" href="/css/dp-styles.css" />
+<link rel="stylesheet" href="/css/main.css" />
+
+<script src="/js/bundle.js"></script>
+<script src="/js/instantpage.js" type="module" defer></script>
+<meta name="generator" content="Hugo 0.72.0" />
+  </head>
+  <body>
+    
+  
+
+
+<noscript>
+  <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KK6SXDK"
+height="0" width="0" style="display:none;visibility:hidden"></iframe>
+</noscript>
+
+
+
+  <header>
+    <nav class="navbar">
+  <div class="nav">
+    
+      <a href="/" class="nav-logo">
+      <img src="/images/dp_logo.png"
+           width="50"
+           height="50"
+           alt="Logo">
+      </a>
+    
+
+    <ul class="nav-links">
+      
+        
+          <li><a href="/tags" name="Tags"><i class="fas fa-tag fa-lg"></i></a></li>
+        
+      
+    </ul>
+  </div>
+</nav>
+
+    <div class="intro-header">
+      <div class="container">
+        <div class="post-heading">
+          
+            
+              <h1>Broadway continues to rise..</h1>
+            
+          
+          
+            <span class="meta-post">
+  <i class="fa fa-calendar-alt"></i>&nbsp;May 10, 2020
+  
+    &nbsp;&nbsp;&nbsp;<i class="fa fa-folder-open"></i>&nbsp;
+    
+      <a href="//categories/r/">R</a>&nbsp;
+    
+      <a href="//categories/tidytuesday/">tidytuesday</a>&nbsp;
+    
+  
+</span>
+
+          
+        </div>
+      </div>
+    </div>
+  </header>
+
+
+    
+
+  <div class="container" role="main">
+    <article class="article" class="blog-post">
+      
+    </p>
+<p>Week 18 of TidyTuesday datasets focuses on <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-04-28/readme.md">Broadway</a> and provides us with 4 separate datasets:</p>
+<ul>
+<li><p><strong>grosses</strong> which has the main bulk of the overall data, including weekly gross, show name, theatre name and average ticket price</p></li>
+<li><p><strong>synopses</strong> which shows the synopsis of the shows - going to forget about this for the sake of this article</p></li>
+<li><p><strong>cpi</strong> which shows consumer price index - we can use this to adjust our money figures for inflation</p></li>
+<li><p><strong>pre_1985_starts</strong> which lists the shows that started before 1985</p></li>
+</ul>
+<p>The main dataset I’m interested in is <strong>grosses</strong> so let’s see what’s in there:</p>
+<pre class="r"><code>glimpse(grosses_raw)</code></pre>
+<pre><code>## Rows: 47,524
+## Columns: 14
+## $ week_ending          &lt;date&gt; 1985-06-09, 1985-06-09, 1985-06-09, 1985-06-0...
+## $ week_number          &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1...
+## $ weekly_gross_overall &lt;dbl&gt; 3915937, 3915937, 3915937, 3915937, 3915937, 3...
+## $ show                 &lt;chr&gt; &quot;42nd Street&quot;, &quot;A Chorus Line&quot;, &quot;Aren&#39;t We All...
+## $ theatre              &lt;chr&gt; &quot;St. James Theatre&quot;, &quot;Sam S. Shubert Theatre&quot;,...
+## $ weekly_gross         &lt;dbl&gt; 282368, 222584, 249272, 95688, 61059, 255386, ...
+## $ potential_gross      &lt;lgl&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA...
+## $ avg_ticket_price     &lt;dbl&gt; 30.42, 27.25, 33.75, 20.87, 20.78, 31.96, 28.3...
+## $ top_ticket_price     &lt;lgl&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA...
+## $ seats_sold           &lt;dbl&gt; 9281, 8167, 7386, 4586, 2938, 7992, 10831, 567...
+## $ seats_in_theatre     &lt;dbl&gt; 1655, 1472, 1088, 682, 684, 1018, 1336, 1368, ...
+## $ pct_capacity         &lt;dbl&gt; 0.7010, 0.6935, 0.8486, 0.8405, 0.5369, 0.9813...
+## $ performances         &lt;dbl&gt; 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9, 0, 8...
+## $ previews             &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0...</code></pre>
+<p>There’s a lot of great data in there - I want to create a few things including a patchwork that gives us a quick look into how Broadway shows have performed over the last 35 years, a dashboard (mainly because I’ve been wanting to try flexdashboard and tidymetrics!) and a quick race bar chart (though I don’t think this’ll be great.)</p>
+<div id="cleaning-the-data" class="section level2">
+<h2>Cleaning the data</h2>
+<p>For me, the main columns of interest are <code>week_ending</code>, <code>weekly_gross</code>, <em>weekly_gross_overall</em>, <em>avg_ticket_price</em>, <em>seats_sold</em>, <em>pct_capacity</em> and we’ll have to use <em>performances</em> and <em>previews</em> to clean up the data. I also want to use the tidymetrics package to add in some additional date columns like quarters, years, and would like a rolling average (not sure how long yet). To do that we need to rename the column <em>week_ending</em> to date and then use <em>cross_by_periods</em>. Before adding in any additional columns I want to clean the data though so let’s:</p>
+<ul>
+<li><p>Rename <em>week_ending</em> to date</p></li>
+<li><p>Make sure there are no 0’s in any of the numerical columns as this will affect our average</p></li>
+<li><p>Account for inflation (I’m going to cut off the data at the end of 2019 so will use last week of 2019)</p></li>
+</ul>
+<pre class="r"><code>grosses &lt;- grosses_raw %&gt;%
+  rename(date = week_ending) %&gt;%
+  mutate_at(vars(weekly_gross:pct_capacity),
+            ~ ifelse(performances + previews == 0 | . == 0, NA, .))
+
+# quick check to see how many NAs there are now
+str(map(grosses, ~ sum(is.na(.))))</code></pre>
+<pre><code>## List of 14
+##  $ date                : int 0
+##  $ week_number         : int 0
+##  $ weekly_gross_overall: int 0
+##  $ show                : int 0
+##  $ theatre             : int 0
+##  $ weekly_gross        : int 125
+##  $ potential_gross     : int 47524
+##  $ avg_ticket_price    : int 125
+##  $ top_ticket_price    : int 47524
+##  $ seats_sold          : int 125
+##  $ seats_in_theatre    : int 88
+##  $ pct_capacity        : int 133
+##  $ performances        : int 0
+##  $ previews            : int 0</code></pre>
+<p>With the easy bits done, we need to account for inflation. This requires a few steps: dividing all the CPIs by the picked date (December 2019), converting weekly dates in <strong>grosses</strong> to monthly so we can merge the two together, mutate all of the columns in <strong>grosses</strong> that use dollars to be updated with the inflation rate.</p>
+<pre class="r"><code>cpi &lt;- cpi_raw %&gt;%
+  mutate(dec_2019_dollars = cpi[year_month == &quot;2019-12-01&quot;] / cpi)
+
+grosses_clean &lt;- grosses %&gt;%
+  filter(year(date) &gt; 1985 &amp; year(date) &lt; 2020) %&gt;%
+  mutate(year_month = floor_date(date, unit = &quot;month&quot;)) %&gt;% 
+  left_join(cpi, by = &quot;year_month&quot;) %&gt;% 
+  mutate_at(
+    vars(
+      weekly_gross_overall,
+      weekly_gross,
+      potential_gross,
+      avg_ticket_price,
+      top_ticket_price
+    ),
+    ~ . * dec_2019_dollars
+  ) %&gt;%
+  select(-potential_gross, -top_ticket_price, -c(year_month:dec_2019_dollars)) %&gt;%
+  mutate(year = year(date))</code></pre>
+</div>
+<div id="exploring" class="section level2">
+<h2>Exploring</h2>
+<p>Now that we’ve done the initial data setup it’d be interesting to look at a few things. In particular I’d like to see:</p>
+<ul>
+<li><p>How my favourite shows have performed over the years (Lion King &amp; Phantom)</p></li>
+<li><p>Has Broadway become more popular? In terms of both number of plays and attendance</p></li>
+<li><p>What’s the price increase like (have adjusted for inflation above)</p></li>
+<li><p>How’s the annual gross revenue?</p></li>
+</ul>
+<p><img src="%22images/patchwork_f.png%22" alt="patchwork img" />
+As mentioned before there are four metrics that can help us assess the popularity of Broadway shows over the last 35 years. Starting with the top-left plot there’s been a clear year-on-year growth with a peak happening in 2018. A few reasons for the decrease in growth in 2019 include Bruce Springsteen’s concert closed in 2018 and shows like Anastasia brought in a lot less money (44m to 9m for Anastaria). We’d expect revenue to go up as number of performances goes up but the fill shows that’s not necessarily the case. 2008, for example, had a lot of performances but that growth wasn’t reflected in revenue.</p>
+<p>The top-right chart, seats sold, shows the average has gone up considerably. Can see a clear shift beginning in 2015 which is when Hamilton opened and as both Hamilton and Book of Mormon have been consistently sold out since the start of their run, it’s pushing number of seats sold up. It’s also interesting that The Lion King, despite it’s long run, is still consistently selling out 96-97% of its capacity.</p>
+<p>The bottom left chart looks at the range of average ticket prices for shows throughout the years and Hamilton’s high prices (as shown further down in the post) are pushing up the averages. Most of the outliers belong to Hamilton and Book of Mormon, both of which charge much higher than average prices (and have crazy top prices!). The bottom right is a simple plot showing the number of unique shows has risen each year, showing there’s been an expansion throughout the years to accommodate all of these.</p>
+<p>Just to emphasise that more performances generally mean more money.. but not always (as in 2008):</p>
+<pre class="r"><code>ggplot(performances_and_shows, aes(x = yearly_gross,
+                                   y = number_of_performances)) +
+  geom_point() + 
+  labs(x = &quot;# of shows&quot;,
+       y = &quot;yearly revenue&quot;,
+       title = &quot;More performances, more money?&quot;)</code></pre>
+<p><img src="/post/2020-05-10-broadway-continues-to-rise_files/figure-html/perf_rev-1.png" width="672" /></p>
+</div>
+<div id="specific-shows" class="section level2">
+<h2>Specific shows</h2>
+<p>After looking more into what made Broadway grow over time I found that the top10 shows were contributing a lot to the overall growth. This is especially true for Hamilton and Book of Mormon, two shows that have driven up the average ticket price for shows and have also set a gold standard for selling out consistently! I wanted to create a quick dashboard with flexdashboard so the graphs below will be reflected in that. You can find the dashboard here:
+<a href="https://www.duncanpastoors.com/broadway_dash.html">link to dashboard</a></p>
+<p>Going to start with adding in the periods and rolling averages using tidymetrics to see if it’ll give us some good insights. As shown by <a href="http://varianceexplained.org/">David Robinson</a> in a previous tidy tuesday (think it was on beer!) we can use both <code>cross_by_dimensions</code> which will add an ‘All’ to our data (in this case in our <em>show</em> column) and <code>cross_by_periods</code> where we can determine what periods to add into the data and what kind of window to summarise them by:</p>
+<pre class="r"><code>top_shows &lt;- grosses_clean %&gt;%
+  group_by(show) %&gt;%
+  summarise(total_gross = sum(weekly_gross, na.rm = TRUE)) %&gt;%
+  arrange(desc(total_gross)) %&gt;%
+  ungroup() %&gt;%
+  head(10) %&gt;%
+  select(show) %&gt;%
+  pull()
+
+grosses_summarised &lt;- grosses_clean %&gt;%
+  filter(show %in% top_shows) %&gt;%
+  cross_by_dimensions(show) %&gt;%
+  cross_by_periods(c(&quot;month&quot;, &quot;quarter&quot;, &quot;year&quot;),
+                   windows = 28) %&gt;% 
+  summarise(
+    usd_gross = sum(weekly_gross, na.rm = TRUE),
+    avg_ticket_price = mean(avg_ticket_price, na.rm = TRUE),
+    nb_seats_sold = sum(seats_sold, na.rm = TRUE),
+    pct_capacity = mean(pct_capacity, na.rm = TRUE)
+  ) %&gt;%
+  ungroup() %&gt;%
+  mutate(year = year(date))</code></pre>
+<pre class="r"><code>grosses_summarised %&gt;%
+  filter(period == &quot;quarter&quot;,
+         show != &quot;All&quot;) %&gt;%
+  mutate(show = fct_reorder(show, avg_ticket_price)) %&gt;%
+  ggplot(aes(x = avg_ticket_price,
+             y = show,
+             fill = show)) +
+  geom_density_ridges(scale = 4, size = 0, alpha = 0.7) +
+  scale_fill_igv() +
+  guides(fill = &quot;none&quot;) +
+  labs(x = &quot;Average ticket price&quot;, 
+       y = &quot;Show&quot;,
+       title = &quot;Distribution of ticket prices for top 10 Broadway shows&quot;) +
+  theme(
+    plot.title = element_text(hjust = -1)
+  )</code></pre>
+<p><img src="/post/2020-05-10-broadway-continues-to-rise_files/figure-html/sp_ticket_price-1.png" width="672" /></p>
+<p>Hamilton is by far the most expensive show on average which explains why it’s already in the top 10 highest grossing theatres despite only opening in 2015. I’m guessing it’s also going to have one of the highest attendance rates so we’ll have a look at that after visualising total gross (which I already calculated above!):</p>
+<pre class="r"><code>grosses_summarised %&gt;%
+  filter(show != &quot;All&quot;,
+         period == &quot;year&quot;) %&gt;% 
+  mutate(show = fct_reorder(show, usd_gross)) %&gt;% 
+  ggplot(aes(x = date,
+             y = usd_gross,
+             fill = show)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_igv() +
+  scale_x_date(date_breaks = &quot;5 years&quot;, date_labels = &quot;%Y&quot;) +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  theme(
+    legend.text = element_text(size = rel(0.8)),
+    legend.title = element_blank(),
+    legend.position = &quot;bottom&quot;
+  ) +
+  labs(x = NULL,
+       y = NULL,
+       title = &quot;Total revenue by Broadway show&quot;)</code></pre>
+<p><img src="/post/2020-05-10-broadway-continues-to-rise_files/figure-html/sp_revenue-1.png" width="672" /></p>
+<p>It’s very obvious here the astronominal amounts Hamilton is bringing in. It slowly pops up in its first year but then continuously grows until 2019 where it slightly starts dropping off. Now that we have a stacked bar plot it also becomes clear where certain shows dropped off like Cats, which closed in 2000 despite still pulling in lots of money. It also had a reboot in 2016/2017 where people flocked to see it! The Book of Mormon is another relatively new show which has been massively successful and just like Hamilton, has a very high price tag.</p>
+<pre class="r"><code>grosses_summarised %&gt;%
+  filter(period == &quot;quarter&quot;,
+         show != &quot;All&quot;) %&gt;%
+  ggplot(aes(x = date,
+             y = pct_capacity,
+             colour = show)) +
+  geom_line(size = 1) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  expand_limits(y = 0) +
+  scale_color_igv() +
+  labs(x = &quot;&quot;,
+       y = &quot;seats sold&quot;,
+       title = &quot;Average % of sold seats per show&quot;) +
+  theme(
+    legend.text = element_text(size = rel(0.8)),
+    legend.title = element_blank(),
+    legend.position = &quot;bottom&quot;
+  )</code></pre>
+<p><img src="/post/2020-05-10-broadway-continues-to-rise_files/figure-html/sp_seats_sold-1.png" width="672" /></p>
+<p>Quite hard to interpret in a static plot with 10 data points but three things stand out immediately: 1) Hamilton consistently has above 100% seat capacity, 2) Book of Mormon has the same, and has been selling out since it started its run, 3) The Lion King has a surprisingly varying attendance rate. That said, out of all the long running shows, it still manages to sell out most of the time.</p>
+<p>Now that we have our main graphs I’ll add them to flexdashboard and add a few score cards to show overall aggregations of the main metrics used. Lastly I wanted to add a quick bar chart race for top 10 shows throughout the years. I didn’t think it would turn out great (it didn’t) but the method might be interesting:</p>
+</div>
+<div id="bar-chart-race" class="section level1">
+<h1>Bar chart race</h1>
+<pre class="r"><code>show_yearly_gross &lt;- grosses_clean %&gt;%
+  select(date, show, weekly_gross) %&gt;%
+  mutate(year = year(date)) %&gt;%
+  group_by(year, show) %&gt;%
+  mutate(yearly_gross = sum(weekly_gross)) %&gt;%
+  ungroup() %&gt;%
+  distinct(year, show, yearly_gross)
+
+yearly_top10_shows_rev &lt;- show_yearly_gross %&gt;%
+  group_by(year) %&gt;%
+  mutate(rank = rank(-yearly_gross),
+         Value_rel = yearly_gross/yearly_gross[rank==1], 
+         Value_lbl = paste0(&quot; &quot;, round(yearly_gross/1e7))) %&gt;%
+  group_by(show) %&gt;%
+  filter(rank &lt;= 10) %&gt;%
+  ungroup()</code></pre>
+<p>We now have all the data we need to set up a static plot for every single year:</p>
+<pre class="r"><code>shows_static &lt;- ggplot(yearly_top10_shows_rev,
+       aes(x = rank,
+           group = show,
+           fill = as.factor(show),
+           colour = as.factor(show))) +
+  geom_tile(aes(y = yearly_gross / 2,
+                height = yearly_gross,
+                width = 0.9), alpha = 0.8, colour = NA) +
+  geom_text(aes(y = 0, label = paste(show, &quot; &quot;)),
+            vjust = 0.2, hjust = 1) +
+  coord_flip(clip = &quot;off&quot;, expand = FALSE) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+    theme(axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+           axis.title.y=element_blank(),
+          legend.position=&quot;none&quot;,
+          panel.background=element_blank(),
+          panel.border=element_blank(),
+          panel.grid.major=element_blank(),
+          panel.grid.minor=element_blank(),
+          panel.grid.major.x = element_line( size=.1, color=&quot;grey&quot; ),
+          panel.grid.minor.x = element_line( size=.1, color=&quot;grey&quot; ),
+          plot.title=element_text(size=25, hjust=0.5, face=&quot;bold&quot;, colour=&quot;grey&quot;, vjust=-1),
+          plot.subtitle=element_text(size=18, hjust=0.5, face=&quot;italic&quot;, color=&quot;grey&quot;),
+          plot.caption =element_text(size=8, hjust=0.5, face=&quot;italic&quot;, color=&quot;grey&quot;),
+          plot.background=element_blank(),
+         plot.margin = margin(2,2, 2, 4, &quot;cm&quot;))</code></pre>
+<pre class="r"><code>shows_static +
+  transition_time(year)
+
+library(gifski)
+anim = shows_static + 
+  transition_states(year,
+                    transition_length = 8, state_length = 68) +
+  view_follow(fixed_x = TRUE) +
+  labs(title = &quot;Revenue per year : {closest_state}&quot;,
+       subtitle = &quot;Top 10 Shows&quot;)
+
+animate(anim, 300, fps = 20,  width = 1200, height = 1000, renderer = gifski_renderer(&quot;yearly_top10_shows_br.gif&quot;))</code></pre>
+<p><img src="https://www.duncanpastoors.com/blog/2020/broadway_files/yearly_top10_shows_br.gif" /></p>
+<div id="conclusion" class="section level2">
+<h2>Conclusion</h2>
+<p>I really liked this TidyTuesday dataset, there’s a lot of data to play with. My main takeaway from all this:</p>
+<ul>
+<li><p>I need to go see Hamilton and Book of Mormon - it’s incredible how they have both managed to ‘change the game’. The fact that their average seat price is so high and they are still constantly over capacity shows that the hype around these shows isn’t dying down</p></li>
+<li><p>The Lion King and Wicked are both still doing very well. Wicked especially is impressive to me due to its very long run!</p></li>
+<li><p>Tidymetrics is incredible - it makes it so much easier to quickly aggregate metrics</p></li>
+<li><p>It’s really easy to set up a flexdashboard and I’ll definitely be using lots more of Patchwork in the future</p></li>
+</ul>
+<p>All of the code can be found in the <a href="https://github.com/duncip/blog-posts">blog section</a> on my GitHub</p>
+</div>
+</div>
+
+
+      
+        <div class="blog-tags">
+          
+            <a href="//tags/tidytuesday/">tidytuesday</a>&nbsp;
+          
+            <a href="//tags/visualisation/">visualisation</a>&nbsp;
+          
+            <a href="//tags/data-analysis/">data-analysis</a>&nbsp;
+          
+        </div>
+      
+    </article>
+    
+  </div>
+
+    <footer>
+  <div class="container">
+    <p>adapted with <i class="fa fa-heart" aria-hidden="true"></i> by Duncan</p>
+      <p class="credits theme-by">
+        Powered By <a href="https://gohugo.io">Hugo</a>&nbsp;Theme <a href="https://github.com/matsuyoshi30/harbor">Harbor</a>
+      </p>
+    <div class="container text-center social-icons">
+      <a href="https://github.com/duncip"><i class="fab fa-github-square"></i></a>
+      <a href="https://twitter.com/duncip"><i class="fas fa-hashtag"></i></a>
+      <a href="mailto:duncan@duncanpastoors.com"><i class="fas fa-reply"></i></a>
+    </div>
+  </div>
+</footer>
+
+  </body>
+</html>
