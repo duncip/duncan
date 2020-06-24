@@ -3,95 +3,95 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>https://duncip.netlify.app/</loc>
+    <loc>/</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories.html</loc>
+    <loc>/categories.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/2020/06/08/exploring-tidymodels-with-regression.html</loc>
+    <loc>/2020/06/08/exploring-tidymodels-with-regression.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/modeling.html</loc>
+    <loc>/tags/modeling.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/modeling.html</loc>
+    <loc>/categories/modeling.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/post.html</loc>
+    <loc>/post.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/regression.html</loc>
+    <loc>/tags/regression.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/regression.html</loc>
+    <loc>/categories/regression.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags.html</loc>
+    <loc>/tags.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/tidymodels.html</loc>
+    <loc>/tags/tidymodels.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/2020/05/10/broadway-continues-to-rise.html</loc>
+    <loc>/2020/05/10/broadway-continues-to-rise.html</loc>
     <lastmod>2020-05-10T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/data-analysis.html</loc>
+    <loc>/tags/data-analysis.html</loc>
     <lastmod>2020-05-10T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/r.html</loc>
+    <loc>/categories/r.html</loc>
     <lastmod>2020-05-10T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/tidytuesday.html</loc>
+    <loc>/tags/tidytuesday.html</loc>
     <lastmod>2020-05-10T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/tidytuesday.html</loc>
+    <loc>/categories/tidytuesday.html</loc>
     <lastmod>2020-05-10T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/visualisation.html</loc>
+    <loc>/tags/visualisation.html</loc>
     <lastmod>2020-05-10T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/archives.html</loc>
+    <loc>/archives.html</loc>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/index/</loc>
+    <loc>/tags/index/</loc>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/search.html</loc>
+    <loc>/search.html</loc>
   </url>
   
 </urlset>
