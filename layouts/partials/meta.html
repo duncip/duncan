@@ -10,7 +10,6 @@
   {{ end }}
 {{ else }}
   <title>{{ .Title }}</title>
-  <meta
-     name="description"
-     content="{{ if .Params.description }}{{ .Params.description }}{{ end }}"/>
+  <meta name="author" content="Duncan Pastoors">
+  <meta name="description" content="{{ if .Params.description }}{{ .Params.description }}{{ end }}">
 {{ end }}

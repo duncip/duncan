@@ -4,12 +4,47 @@
   
   <url>
     <loc>/</loc>
-    <lastmod>2020-06-08T00:00:00+00:00</lastmod>
+    <lastmod>2020-06-27T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/2020/06/27/caribou-and-their-movement.html</loc>
+    <lastmod>2020-06-27T00:00:00+00:00</lastmod>
   </url>
   
   <url>
     <loc>/categories.html</loc>
-    <lastmod>2020-06-08T00:00:00+00:00</lastmod>
+    <lastmod>2020-06-27T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/post.html</loc>
+    <lastmod>2020-06-27T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/categories/r.html</loc>
+    <lastmod>2020-06-27T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags.html</loc>
+    <lastmod>2020-06-27T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/tidytuesday.html</loc>
+    <lastmod>2020-06-27T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/categories/tidytuesday.html</loc>
+    <lastmod>2020-06-27T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/visualisation.html</loc>
+    <lastmod>2020-06-27T00:00:00+00:00</lastmod>
   </url>
   
   <url>
@@ -28,22 +63,12 @@
   </url>
   
   <url>
-    <loc>/post.html</loc>
-    <lastmod>2020-06-08T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
     <loc>/tags/regression.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
     <loc>/categories/regression.html</loc>
-    <lastmod>2020-06-08T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
@@ -59,26 +84,6 @@
   
   <url>
     <loc>/tags/data-analysis.html</loc>
-    <lastmod>2020-05-10T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/categories/r.html</loc>
-    <lastmod>2020-05-10T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags/tidytuesday.html</loc>
-    <lastmod>2020-05-10T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/categories/tidytuesday.html</loc>
-    <lastmod>2020-05-10T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags/visualisation.html</loc>
     <lastmod>2020-05-10T00:00:00+00:00</lastmod>
   </url>
   

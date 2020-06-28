@@ -28,6 +28,14 @@
   font-size: 1.1em;
 }
 
+.article .caption {
+  font-size: 0.4em;
+}
+
+.article a {
+  font-weight: bold;
+}
+
 /***************************************
 * Code blocks
 ***************************************/
@@ -38,3 +46,4 @@
 .article pre {
   margin: 25px 0 25px 0;
 }
+

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+
+  <title>Caribou and their movement - maps in R</title>
+  <meta name="author" content="Duncan Pastoors">
+  <meta name="description" content="Using the sf and bcmap packages to visualise Caribou locations">
+
+
+<script>
+  (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-KK6SXDK');
+</script>
+  
+
+
+
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="alternate" type="application/rss+xml" href="/index.xml" title="Duncan Pastoors">
+
+
+<link rel="stylesheet" href="/fontawesome/css/fontawesome.css" />
+<link rel="stylesheet" href="/fontawesome/css/brands.css" />
+<link rel="stylesheet" href="/fontawesome/css/solid.css" />
+
+<link rel="stylesheet" href="/css/dp-styles.css" />
+<link rel="stylesheet" href="/css/main.css" />
+<link rel="stylesheet" href="/css/zenburn.css" id="theme-stylesheet">
+
+<script src="/js/bundle.js"></script>
+<script src="/js/instantpage.js" type="module" defer></script>
+<script src="/js/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+<meta name="generator" content="Hugo 0.72.0" />
+  </head>
+  <body>
+    
+  
+
+
+<noscript>
+  <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KK6SXDK"
+height="0" width="0" style="display:none;visibility:hidden"></iframe>
+</noscript>
+
+
+
+  <header>
+    <nav class="navbar">
+  <div class="nav">
+    
+      <a href="/" class="nav-logo">
+      <img src="/images/dp_logo.png"
+           width="50"
+           height="50"
+           alt="Logo">
+      </a>
+    
+
+    <ul class="nav-links">
+      
+        
+          <li><a href="/tags" name="Tags"><i class="fas fa-tag fa-lg"></i></a></li>
+        
+      
+    </ul>
+  </div>
+</nav>
+
+    <div class="intro-header">
+      <div class="container">
+        <div class="post-heading">
+          
+            
+              <h1>Caribou and their movement - maps in R</h1>
+            
+          
+          
+            <span class="meta-post">
+  <i class="fa fa-calendar-alt"></i>&nbsp;Jun 27, 2020
+  
+    &nbsp;&nbsp;&nbsp;<i class="fa fa-folder-open"></i>&nbsp;
+    
+      <a href="//categories/r/">R</a>&nbsp;
+    
+      <a href="//categories/tidytuesday/">tidytuesday</a>&nbsp;
+    
+  
+</span>
+
+          
+        </div>
+      </div>
+    </div>
+  </header>
+
+
+    
+
+  <div class="container" role="main">
+    <article class="article" class="blog-post">
+      
+    </p>
+<p>This week’s TidyTuesday data is about Caribou and the <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-06-23/readme.md">tracking of their whereabouts</a>. When I first saw the repo entry I got excited as I thought there’d be a great opportunity to do some classification modeling like can we determine sex based on distance traveled? How do the patterns in their traveling differ as they grow older? Unfortunately, most of the data within <code>individuals</code> are incomplete as that didn’t seem to be the aim of the study.</p>
+<p>What we have instead is the opportunity of creating some maps in R. I don’t work with maps in my everyday job as we don’t tend to use location data but thought it would be interesting to try, especially as the last few TidyTuesdays have been good for map plots. Upon reading some articles like this <a href="https://www.r-spatial.org/r/2018/10/25/ggplot2-sf.html">great r-spatial</a> article, I thought I’d try two approaches: one with a simple <code>geom_point</code> (after I already checked the data) and one using a drawn map of British Columbia (which thankfully <a href="https://github.com/bcgov/bcmaps">already has a package</a>).</p>
+<pre class="r"><code>individuals &lt;- readr::read_csv(&#39;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-06-23/individuals.csv&#39;)
+locations &lt;- readr::read_csv(&#39;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-06-23/locations.csv&#39;)</code></pre>
+<div id="explore" class="section level1">
+<h1>Explore</h1>
+<p>I already looked through the individuals dataset which is when I realised the things I wanted to do weren’t feasible. A quick skimr shows that data completeness is very low and even though we perhaps could do something with the <code>deploy_off_type</code> column, the amount of work in trying to get it working is not worth it.</p>
+<pre class="r"><code>skimr::skim(individuals)</code></pre>
+<p>So instead let’s forget about that dataset and instead turn to locations!</p>
+<pre class="r"><code>nrow(locations)</code></pre>
+<pre><code>## [1] 249450</code></pre>
+<p>That is a lot of rows. I don’t think that’ll be a problem for the <code>sf</code> map as it will handle it well but trying to plot 250k points may be an issue. I just want to check if <code>study_site</code> and <code>season</code> are complete:</p>
+<pre class="r"><code>print(str_c(&#39;study_site: &#39;, sum(is.na(locations$study_site)), &#39;, &#39;, &#39;season: &#39;, sum(is.na(locations$season))))</code></pre>
+<pre><code>## [1] &quot;study_site: 0, season: 0&quot;</code></pre>
+<p>All good. As I’m not plotting on a map in my first graph, I don’t care that much for exact accuracy of the location (within reason) so I’m going to round latitude and longitude to 2 decimals. This should reduce a lot of the ‘duplicates’ and make it easier to plot.</p>
+<pre class="r"><code>locations_deduped &lt;- locations %&gt;%
+  mutate(longitude = round(longitude, 2),
+         latitude = round(latitude, 2)) %&gt;%
+  distinct(season, study_site, longitude, latitude)</code></pre>
+<p>That reduces our data to 18k rows which should be more manageable.</p>
+<div id="point-plot" class="section level2">
+<h2>Point plot</h2>
+<p>Now for the plotting part which, to be honest, is very simple as the amount of data draws what looks like a map for us already.</p>
+<pre class="r"><code>ggplot(locations_deduped) +
+  geom_point(aes(longitude, latitude, col = study_site)) +
+  theme(legend.position = &#39;bottom&#39;)</code></pre>
+<p><img src="/post/2020-06-28-caribou-movement_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p>This is a decemt start. One thing I do immediately notice is that Caribou deploying from the <em>Hart Ranges</em> site seem to be all over the place. Strange as proportionally, there aren’t that many entries from that site. Anyway, all I want to do is:</p>
+<ul>
+<li><p>Split by season so we can observe the differences</p></li>
+<li><p>Reduce size of points</p></li>
+<li><p>Apply a theme (I read that <code>theme_void()</code> is a great option for maps)</p></li>
+<li><p>Style until I’m happy with it!</p></li>
+</ul>
+<pre class="r"><code>ggplot(locations_deduped) +
+  geom_point(aes(longitude, latitude, col = study_site), size = 0.3, alpha = 0.9) +
+  gghighlight(unhighlighted_params = list(colour = &quot;#F2EFC7&quot;), use_direct_label = FALSE) +
+  palettetown::scale_colour_poke(pokemon = &quot;golbat&quot;) +
+  guides(colour = guide_legend(title = &quot;Study Site&quot;, override.aes = list(size = 4))) +
+  facet_wrap(~season, strip.position = &quot;bottom&quot;) +
+  labs(
+    title = &quot;\nSeasonal differences in British Columbian Caribou movement&quot;,
+    subtitle = &quot;Patterns show that during summer, the different herds are much closer together than during winter.\n Without knowledge of the animal, I assume this is because winter comes with food challenges.\n&quot;
+  ) +
+  theme_void() +
+  theme(
+    #plot.background = element_rect(fill = &quot;#D2BBA0&quot;),
+    plot.background = element_rect(fill = &#39;#BAD9B5&#39;),
+    plot.title = element_text(hjust = 0.1, family = &#39;opensans&#39;, colour = &#39;#442B48&#39;, face = &#39;bold&#39;, size = 16),
+    plot.subtitle = element_text(hjust = 0.1, family = &#39;opensans&#39;, colour = &#39;#442B48&#39;, size = 10),
+    #legend.position = c(0.4, 0.8),
+    legend.position = c(0.8, 0.7),
+    legend.title = element_text(size = 8, family = &#39;roboto&#39;, colour = &#39;#442B48&#39;, face = &#39;bold&#39;),
+    legend.text = element_text(size = 8, family = &#39;roboto&#39;, colour = &#39;#442B48&#39;),
+    strip.background = element_blank(),
+    strip.placement = &quot;outside&quot;,
+    strip.text = element_text(size = 12, family = &#39;opensans&#39;, colour = &#39;#726E60&#39;, face = &#39;bold&#39;)
+  )</code></pre>
+<div class="figure">
+<img src="../../../images/caribou_point_map.png" alt="" />
+<p class="caption">geom_point map faceted by season showing difference in Caribou locations between the seasons.</p>
+</div>
+<p>You can <a href="../../../images/caribou_point_map.png">also enlarge the image to see the detail clearer</a></p>
+<p><code>gghighlight</code> is an amazing package that comes in handy when wanting to quickly highlight certain data that needs to stand out (and I use it daily) but <code>unhighlighted_params</code> is a relatively new feature and not used very much yet. <a href="https://yutani.rbind.io/post/gghighlight-0-2-0/">It’s very useful</a> and helps us draw the points that don’t have a <code>study_site</code> appointed so we end up with the same map on both sides, even if the data points are different.</p>
+<p>Don’t have much to say about the data as I don’t know a lot about Caribou (or British Columbia) but I find it interesting that the Caribou take up so much more real estate during the summer whereas during the winter there are big stretches of land that are left unattended. I really like the plot though and I think if there is no necessity to draw a map, <code>geom_point</code> seems like the perfect approach.</p>
+</div>
+<div id="map-plot" class="section level2">
+<h2>Map plot</h2>
+<p>I also wanted to try a map plot which I’m only able to do because of the amazing <a href="https://github.com/bcgov/bcmaps">bcgov</a> team that put together the package. As part of the package, there’s a function <code>transform_bc_albers()</code> that will help us transform an sf object to a BC Albers projection. Of course, to do that, need to get the dataset into an sf object first!</p>
+<pre class="r"><code>library(sf)
+
+sf_locations &lt;- locations %&gt;%
+  select(study_site, season, latitude, longitude) %&gt;%
+  st_as_sf(coords = c(&quot;longitude&quot;, &quot;latitude&quot;)) %&gt;%
+  st_set_crs(4326)</code></pre>
+<p>For me, the most difficult part to wrap my head around was <code>st_set_crs()</code>. All of the examples I saw (and I read many articles!) simply used <code>st_set_crs(4326)</code> but I couldn’t find out what the 4326 was referring to. Turns out it was very simple.. just not for someone who never uses maps! It refers to <a href="https://epsg.io/4326">the World Geodetic System</a></p>
+<div class="figure">
+<img src="../../../images/caribou_sf_map.png" alt="" />
+<p class="caption">geom_sf map faceted by season showing difference in Caribou locations between the seasons</p>
+</div>
+<p><a href="../../../images/caribou_sf_map.png">Again, a bigger version here</a></p>
+<p>Changes are much less obvious between the two seasons in this plot but it’s nice to have the backdrop of BC. Makes you realise how little of the space they actually occupy. Can still see that they are more likely to ‘clump’ during summer time! I’m not going to change any more to the graph but I think to make it better I would just forego the facet altogether.</p>
+<p>This was another great TidyTuesday dataset. I definitely learnt a lot about how to use <code>geom_sf</code> and I liked the playing around with the styles for the <code>geom_point()</code> plot. Bit disappointed I couldn’t do the classification model and maps aren’t really my thing but had put off doing any of the recent TT’s due to their focus on location data (although there were some historically signicant datasets in there that people need to check out).</p>
+</div>
+</div>
+
+
+      
+        <div class="blog-tags">
+          
+            <a href="//tags/tidytuesday/">tidytuesday</a>&nbsp;
+          
+            <a href="//tags/visualisation/">visualisation</a>&nbsp;
+          
+        </div>
+      
+    </article>
+    
+  </div>
+
+    <footer>
+  <div class="container">
+    <p>adapted with <i class="fa fa-heart" aria-hidden="true"></i> by Duncan</p>
+      <p class="credits theme-by">
+        Powered By <a href="https://gohugo.io">Hugo</a>&nbsp;Theme <a href="https://github.com/matsuyoshi30/harbor">Harbor</a>
+      </p>
+    <div class="container text-center social-icons">
+      <a href="https://github.com/duncip"><i class="fab fa-github-square"></i></a>
+      <a href="https://twitter.com/duncip"><i class="fas fa-hashtag"></i></a>
+      <a href="mailto:duncan@duncanpastoors.com"><i class="fas fa-reply"></i></a>
+    </div>
+  </div>
+</footer>
+
+  </body>
+</html>
