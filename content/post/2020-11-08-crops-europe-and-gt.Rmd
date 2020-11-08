@@ -229,7 +229,8 @@ gt_theme_cropc <- function(data,...) {
 ### Let's see what the table looks like
 
 ```{r}
-top_eu_table_data %>%
+top_eu_data_tab <- 
+  top_eu_table_data %>%
   select(code, decade, decade_crop_pct, flag_url, crop) %>%
   rename("country" = code) %>% 
   pivot_wider(names_from = decade, values_from = c(country, flag_url, decade_crop_pct)) %>% 
@@ -266,6 +267,8 @@ top_eu_table_data %>%
     country_2010 = "2010s"
   ) %>%
   gt_theme_cropc()
+
+gtsave(top_eu_data_tab, "top_eu_data_tab.png") # save as img as web_image doesn't show on mobile
 ```
 
 I like it! There are a few issues, mainly with differing flag sizes because of the way they were uploaded on Wikipedia. We could potentially manually alter these by creating a column in the `flags` dataframe and using the `web_image()` function to transform images based on height / width specified in that but for the sake of this exercise, I'm happy with this. The main thing I'm unhappy with is the column names as I want to do something similar for my second table but unfortunately `cols_label()` does not yet seem to support `match()` regex functions.
@@ -306,7 +309,8 @@ uk_nl_ranked %>%
 #### Table with function
 
 ```{r}
-uk_nl_ranked %>%
+uk_nl_ranked_tab <- 
+  uk_nl_ranked %>%
   gt() %>%
   cols_label(
     flag_url_1960_GBR = "",
@@ -363,6 +367,8 @@ uk_nl_ranked %>%
     subtitle = md("0 means *unranked*")
   ) %>%
   gt_theme_cropc()
+
+gtsave(uk_nl_ranked_tab, "uk_nl_ranked_tab.png") # save as img as web_image doesn't show on mobile
 ```
 
 
