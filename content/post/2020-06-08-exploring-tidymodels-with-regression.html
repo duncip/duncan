@@ -137,10 +137,10 @@ rf_fit &lt;-
 rf_fit %&gt;%
   collect_metrics()
 #&gt; # A tibble: 2 x 5
-#&gt;   .metric .estimator      mean     n  std_err
-#&gt;   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt; &lt;int&gt;    &lt;dbl&gt;
-#&gt; 1 rmse    standard   32527.       10 962.    
-#&gt; 2 rsq     standard       0.832    10   0.0103</code></pre>
+#&gt;   .metric .estimator      mean     n    std_err
+#&gt;   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt; &lt;int&gt;      &lt;dbl&gt;
+#&gt; 1 rmse    standard   31742.       10 1201.     
+#&gt; 2 rsq     standard       0.842    10    0.00921</code></pre>
 <p>The R<sup>2</sup> looks <em>okay</em> for the training set - sitting at 0.83 and we have an RMSE of $32k. Let’s see what it looks like on the testing data! I think we should have <code>log10</code>’d the <code>sale_price</code> but let’s go ahead and test it on the testing data and then for model 2 I will use <code>log10</code>.</p>
 </div>
 <div id="predict" class="section level3">
@@ -215,8 +215,8 @@ rf_log10_fit %&gt;%
 #&gt; # A tibble: 2 x 5
 #&gt;   .metric .estimator   mean     n std_err
 #&gt;   &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt;
-#&gt; 1 rmse    standard   0.0762    10 0.00209
-#&gt; 2 rsq     standard   0.811     10 0.00797</code></pre>
+#&gt; 1 rmse    standard   0.0771    10 0.00231
+#&gt; 2 rsq     standard   0.812     10 0.00775</code></pre>
 <p>The R<sup>2</sup> has actually gone down a bit but well, the focus is on the routine, not the outcome (here)! Let’s fit on the test set and see how it looks.</p>
 <pre class="r"><code>set.seed(123)
 rf_log10_last_fit &lt;-
@@ -256,11 +256,11 @@ rf_log10_last_fit %&gt;%
 #&gt; # A tibble: 5 x 22
 #&gt;   longitude latitude lot_area year_sold sale_price neighborhood_Co~
 #&gt;       &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt;      &lt;dbl&gt;            &lt;dbl&gt;
-#&gt; 1     0.894    1.06    3.01        1.69       5.33           -0.315
-#&gt; 2     0.894    1.00    0.216       1.69       5.02           -0.315
-#&gt; 3     0.908    0.985   0.582       1.69       5.24           -0.315
-#&gt; 4     0.147    1.44    0.522       1.69       5.28           -0.315
-#&gt; 5     0.147    1.43   -0.0114      1.69       5.29           -0.315
+#&gt; 1     0.909    1.07    2.71        1.68       5.33           -0.318
+#&gt; 2     0.909    1.02    0.187       1.68       5.02           -0.318
+#&gt; 3     1.00     0.919   0.129       1.68       5.39           -0.318
+#&gt; 4     0.165    1.45    0.463       1.68       5.28           -0.318
+#&gt; 5     0.165    1.44   -0.0183      1.68       5.29           -0.318
 #&gt; # ... with 16 more variables: neighborhood_Old_Town &lt;dbl&gt;,
 #&gt; #   neighborhood_Edwards &lt;dbl&gt;, neighborhood_Somerset &lt;dbl&gt;,
 #&gt; #   neighborhood_Northridge_Heights &lt;dbl&gt;, neighborhood_Gilbert &lt;dbl&gt;,
@@ -290,8 +290,8 @@ glm_fit %&gt;%
 #&gt; # A tibble: 2 x 5
 #&gt;   .metric .estimator   mean     n std_err
 #&gt;   &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt;
-#&gt; 1 rmse    standard   0.0939    10 0.00364
-#&gt; 2 rsq     standard   0.714     10 0.0203</code></pre>
+#&gt; 1 rmse    standard   0.0943    10 0.00305
+#&gt; 2 rsq     standard   0.718     10 0.0170</code></pre>
 <p>And finally predict. Then we’ll put together the metrics for the two models (and pretend the first one didn’t happen..) and see whether the glmnet or the tree performed best.</p>
 <pre class="r"><code>set.seed(123)
 glm_last_fit &lt;-

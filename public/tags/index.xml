@@ -9,10 +9,22 @@
 		
 		<managingEditor>Page(/tags) (duncan pastoors)</managingEditor>
     	
-  		<lastBuildDate>Sat, 27 Jun 2020 00:00:00 +0000</lastBuildDate>
+  		<lastBuildDate>Sun, 08 Nov 2020 00:00:00 +0000</lastBuildDate>
 		
 		<atom:link href="/tags.html" rel="self" type="application/rss+xml" />
 		
+		<item>
+			<title>Crops, Europe, and {gt}</title>
+			<link>/2020/11/08/crops-europe-and-gt.html</link>
+			<pubDate>Sun, 08 Nov 2020 00:00:00 +0000</pubDate>
+			<guid>/2020/11/08/crops-europe-and-gt.html</guid>
+			<description>
+
+
+&lt;p&gt;Recently (or prior to US election craze) there seems to have been a bit of focus on tables in the R community on Twitter.
+</description>
+		</item>
+      	
 		<item>
 			<title>Caribou and their movement - maps in R</title>
 			<link>/2020/06/27/caribou-and-their-movement.html</link>

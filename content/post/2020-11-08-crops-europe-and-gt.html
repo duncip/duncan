@@ -1,0 +1,2242 @@
+---
+title: Crops, Europe, and {gt}
+description: Creating a standardised {gt} table template to show top Countries by % of crop yielded
+author: Duncan
+date: '2020-11-08'
+slug: crops-europe-and-gt
+categories: [R, tidytuesday, tables, scraping]
+tags: [tidytuesday, visualisation, scraping]
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+<p>Recently (or prior to US election craze) there seems to have been a bit of focus on tables in the R community on Twitter.
+<!--more--></p>
+<p>The <code>gt</code> package in particular, which was released by the amazing RStudio team, seems to have been getting lots of attention. There have been several TidyTuesday entries where people have used tables with the most notable (to me, from memory) entries by <a href="https://themockup.blog/">Thomas Mock</a> who has written a few tutorials. Based on those tutorials I wanted to have a look myself.</p>
+<p>Tables are a necessity where I work to represent big piles of web data that can’t be visualised easily and one of the issues we run into is that everyone uses different formats. Even the same person, based on what week they’re doing something, will produce something completely different. <code>gt</code> seems to address this with a theme function so you can have cool consistent tables like the BBC or FiveThirtyEight, so I’ll be trying that.</p>
+<p>For the data I wanted to do something simple: look at <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-01/readme.md">global crop yields</a> and focus on European countries to see which is the top exporter for each crop throughout the decades. The below has several chunks stripped out, full code can be found on <a href="https://github.com/duncip/blog-posts/blob/master/2020-11-08-crops-europe-and-gt.Rmd">GitHub</a>!</p>
+<pre class="r"><code>key_crops %&gt;%
+  distinct(country) %&gt;% nrow()</code></pre>
+<pre><code>## [1] 249</code></pre>
+<div id="scraping-and-readying-data" class="section level3">
+<h3>Scraping and readying data</h3>
+<p>With 249 countries there’s a lot to process. Instead, I just want to focus on Europe. Because I don’t want to put together a list manually, I’ll use the <a href="https://en.wikipedia.org/wiki/List_of_European_countries_by_population">Wiki page</a> to get a quick list and also to extract the flag icons for the table!</p>
+<pre class="r"><code>url &lt;- &quot;https://en.wikipedia.org/wiki/List_of_European_countries_by_population&quot;
+wiki_scrape &lt;- 
+  url %&gt;%
+  read_html() %&gt;%
+  html_nodes(xpath = &#39;//*[@id=&quot;mw-content-text&quot;]/div[1]/table&#39;) 
+
+wiki_table &lt;-
+  wiki_scrape %&gt;%
+  html_table(fill = TRUE)
+
+names(wiki_table[[1]]) &lt;- c(&quot;rank&quot;, &quot;country&quot;, &quot;population&quot;, &quot;estimate&quot;, &quot;date&quot;, &quot;region&quot;, &quot;source&quot;)
+wiki_table[[1]]$country &lt;- gsub(&#39;\\[.*?\\]&#39;, &#39;&#39;, wiki_table[[1]]$country)
+eu_list &lt;- as_tibble(wiki_table[[1]])[-1,]
+
+head(eu_list, 4)</code></pre>
+<pre><code>## # A tibble: 4 x 7
+##   rank  country population  estimate    date      region source                 
+##   &lt;chr&gt; &lt;chr&gt;   &lt;chr&gt;       &lt;chr&gt;       &lt;chr&gt;     &lt;chr&gt;  &lt;chr&gt;                  
+## 1 1     Russia  146,052,135 146,877,088 1 Jan 20~ &quot;EAEU&quot; National Estimate[6]   
+## 2 2     Turkey  84,867,581  83,154,997  4 Feb 20~ &quot;&quot;     National estimate[7]   
+## 3 3     Germany 84,030,234  82,887,000  30 Jun 2~ &quot;EU&quot;   National estimate[8]   
+## 4 4     France  65,311,156  67,076,000  1 Mar 20~ &quot;EU&quot;   Monthly national estim~</code></pre>
+<p>Now that we have the list, I’ll extract the flags separately. I also need to fix the URL as <code>gt</code> requires you to put the full url rather than the relative one:</p>
+<pre class="r"><code>flags &lt;- 
+  wiki_scrape %&gt;%
+  html_nodes(&quot;img&quot;) %&gt;%
+  html_attr(&quot;src&quot;) %&gt;%
+  as_tibble() %&gt;%
+  rename(&quot;flag_url&quot; = value) %&gt;%
+  mutate(country = str_extract(flag_url, &quot;(?&lt;=of_).+(?=.svg/)&quot;),
+         country = case_when(
+           str_detect(country, &quot;Kingdom&quot;) ~ &quot;United Kingdom&quot;,
+           str_detect(country, &quot;Netherlands&quot;) ~ &quot;Netherlands&quot;,
+           str_detect(country, &quot;Belgium&quot;) ~ &quot;Belgium&quot;,
+           TRUE ~ country
+         ),
+         flag_url = str_replace(flag_url, &quot;\\/\\/&quot;, &quot;https://&quot;))
+
+head(flags, 4)</code></pre>
+<pre><code>## # A tibble: 4 x 2
+##   flag_url                                                               country
+##   &lt;chr&gt;                                                                  &lt;chr&gt;  
+## 1 https://upload.wikimedia.org/wikipedia/en/thumb/f/f3/Flag_of_Russia.s~ Russia 
+## 2 https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Flag_of_Tur~ Turkey 
+## 3 https://upload.wikimedia.org/wikipedia/en/thumb/b/ba/Flag_of_Germany.~ Germany
+## 4 https://upload.wikimedia.org/wikipedia/en/thumb/c/c3/Flag_of_France.s~ France</code></pre>
+<p>With the list of European countries and flag URLs sorted, I had a quick look through the data and found that no countries in Europe produce <strong>cocoa beans</strong> or <strong>cassava</strong> so I’ve filtered both these out. Now we can have a quick look at recurring countries.</p>
+<p><img src="/post/2020-11-08-crops-europe-and-gt_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+</div>
+<div id="table-time" class="section level2">
+<h2>Table time!</h2>
+<p>In terms of the data, I want to use percentages rather than actual yield so the numbers are comparable. I’ll also simply slice the top for each crop, every decade, so we have the most productive countries only. This is the data I’ll use for the first table:</p>
+<pre class="r"><code>top_eu_table_data &lt;-
+  eu_crop_data %&gt;%
+  group_by(decade, crop) %&gt;%
+  mutate(decade_crop_pct = ifelse(yield == 0, 0, yield / sum(yield))) %&gt;%
+  ungroup() %&gt;%
+  group_by(decade, crop) %&gt;%
+  slice_max(decade_crop_pct, n = 1) %&gt;%
+  ungroup() %&gt;%
+  left_join(flags, by = &quot;country&quot;) %&gt;%
+  select(-country)</code></pre>
+<p>To show you what the table would look like with any alterations at all, here’s the first few lines..</p>
+<style>html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+
+#nvsoxubedn .gt_table {
+  display: table;
+  border-collapse: collapse;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#nvsoxubedn .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#nvsoxubedn .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#nvsoxubedn .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 0;
+  padding-bottom: 4px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#nvsoxubedn .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#nvsoxubedn .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#nvsoxubedn .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#nvsoxubedn .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#nvsoxubedn .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#nvsoxubedn .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#nvsoxubedn .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#nvsoxubedn .gt_group_heading {
+  padding: 8px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#nvsoxubedn .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#nvsoxubedn .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#nvsoxubedn .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#nvsoxubedn .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#nvsoxubedn .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 12px;
+}
+
+#nvsoxubedn .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#nvsoxubedn .gt_first_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+}
+
+#nvsoxubedn .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#nvsoxubedn .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#nvsoxubedn .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#nvsoxubedn .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#nvsoxubedn .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#nvsoxubedn .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding: 4px;
+}
+
+#nvsoxubedn .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#nvsoxubedn .gt_sourcenote {
+  font-size: 90%;
+  padding: 4px;
+}
+
+#nvsoxubedn .gt_left {
+  text-align: left;
+}
+
+#nvsoxubedn .gt_center {
+  text-align: center;
+}
+
+#nvsoxubedn .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#nvsoxubedn .gt_font_normal {
+  font-weight: normal;
+}
+
+#nvsoxubedn .gt_font_bold {
+  font-weight: bold;
+}
+
+#nvsoxubedn .gt_font_italic {
+  font-style: italic;
+}
+
+#nvsoxubedn .gt_super {
+  font-size: 65%;
+}
+
+#nvsoxubedn .gt_footnote_marks {
+  font-style: italic;
+  font-size: 65%;
+}
+</style>
+<div id="nvsoxubedn" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;"><table class="gt_table">
+  
+  <thead class="gt_col_headings">
+    <tr>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">code</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">decade</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">crop</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">yield</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">decade_crop_pct</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr>
+      <td class="gt_row gt_left">ESP</td>
+      <td class="gt_row gt_right">1960</td>
+      <td class="gt_row gt_left">bananas</td>
+      <td class="gt_row gt_right">36.213167</td>
+      <td class="gt_row gt_right">0.41607086</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/23px-Flag_of_Spain.svg.png</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">1960</td>
+      <td class="gt_row gt_left">barley</td>
+      <td class="gt_row gt_right">3.906722</td>
+      <td class="gt_row gt_right">0.07424106</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">1960</td>
+      <td class="gt_row gt_left">beans</td>
+      <td class="gt_row gt_right">2.272400</td>
+      <td class="gt_row gt_right">0.12436583</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+    </tr>
+  </tbody>
+  
+  
+</table></div>
+<p> </p>
+<p>The way I defined the function is by altering the table one line at a time. I then decided what I could reuse for future tables and put it in a function. For example, I started with the above table and slowly added things like <code>opt_all_caps()</code> and got it to look how I wanted. Once that was done, I cut and pasted the reusable code into a function. My final function looks like this:</p>
+<pre class="r"><code>gt_theme_cropc &lt;- function(data,...) {
+  data %&gt;%
+  opt_all_caps()  %&gt;%
+  opt_table_font(
+    font = list(
+      google_font(&quot;Roboto Condensed&quot;),
+      default_fonts()
+    )
+  ) %&gt;%
+    tab_style(
+      style = cell_borders(
+        sides = &quot;bottom&quot;, color = &quot;transparent&quot;, weight = px(2)
+      ),
+      locations = cells_body(
+        columns = TRUE,
+        rows = nrow(data$`_data`)
+      )
+    )  %&gt;% 
+    text_transform(                             
+    locations = cells_body(
+      contains(&quot;flag&quot;)
+      ),
+    fn = function(x) {
+      web_image(
+        url = x,
+        height = 10
+      )
+    }
+  ) %&gt;%
+    tab_style(
+    style = list(
+      cell_text(weight = &quot;bold&quot;)
+    ), 
+    locations = cells_body(
+      columns = vars(crop)
+    )
+  ) %&gt;%
+    cols_label(
+    crop = &quot;Crop&quot;
+    ) %&gt;%
+  tab_source_note(
+    source_note = md(&quot;**DATA**:   [TidyTuesday wk 36](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-01/readme.md) &lt;br&gt;**TABLE**:    Duncan P&quot;)
+  ) %&gt;%
+  tab_options(
+    column_labels.background.color = &quot;white&quot;,
+    table.border.top.width = px(3),
+    table.border.top.color = &quot;transparent&quot;,
+    table.border.bottom.color = &quot;transparent&quot;,
+    table.border.bottom.width = px(3),
+    column_labels.border.top.width = px(3),
+    column_labels.border.top.color = &quot;transparent&quot;,
+    column_labels.border.bottom.width = px(3),
+    column_labels.border.bottom.color = &quot;black&quot;,
+    data_row.padding = px(3),
+    source_notes.font.size = 8,
+    table.font.size = 12,
+    heading.align = &quot;left&quot;,
+    table.align = &quot;left&quot;,
+    ...
+  ) 
+}</code></pre>
+<div id="lets-see-what-the-table-looks-like" class="section level3">
+<h3>Let’s see what the table looks like</h3>
+<pre class="r"><code>top_eu_table_data %&gt;%
+  select(code, decade, decade_crop_pct, flag_url, crop) %&gt;%
+  rename(&quot;country&quot; = code) %&gt;% 
+  pivot_wider(names_from = decade, values_from = c(country, flag_url, decade_crop_pct)) %&gt;% 
+  select(crop, flag_url_1960, contains(&quot;1960&quot;), flag_url_1970, contains(&quot;1970&quot;), 
+         flag_url_1980, contains(&quot;1980&quot;), flag_url_1990, contains(&quot;1990&quot;), 
+         flag_url_2000, contains(&quot;2000&quot;), flag_url_2010, contains(&quot;2010&quot;)) %&gt;%
+  gt() %&gt;%
+  fmt_percent(
+    columns = contains(&quot;pct&quot;),
+    decimals = 0
+  ) %&gt;%
+  tab_header(
+    title = md(&quot;**Top exporter by crop for European countries through the decades**&quot;),
+    subtitle = md(&quot;% represents proportion of **total crop** export that decade&quot;)
+  ) %&gt;%
+    cols_label(
+    flag_url_1960 = &quot;&quot;,
+    flag_url_1970 = &quot;&quot;,
+    flag_url_1980 = &quot;&quot;,
+    flag_url_1990 = &quot;&quot;,
+    flag_url_2000 = &quot;&quot;,
+    flag_url_2010 = &quot;&quot;,
+    decade_crop_pct_1960 = &quot;&quot;,
+    decade_crop_pct_1970 = &quot;&quot;,
+    decade_crop_pct_1980 = &quot;&quot;,
+    decade_crop_pct_1990 = &quot;&quot;,
+    decade_crop_pct_2000 = &quot;&quot;,
+    decade_crop_pct_2010 = &quot;&quot;,
+    country_1960 = &quot;60s&quot;,
+    country_1970 = &quot;70s&quot;,
+    country_1980 = &quot;80s&quot;,
+    country_1990 = &quot;90s&quot;,
+    country_2000 = &quot;2000s&quot;,
+    country_2010 = &quot;2010s&quot;
+  ) %&gt;%
+  gt_theme_cropc()</code></pre>
+<style>@import url("https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+html {
+  font-family: 'Roboto Condensed', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+
+#jrslqjasvw .gt_table {
+  display: table;
+  border-collapse: collapse;
+  margin-left: 0;
+  margin-right: auto;
+  color: #333333;
+  font-size: 12px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 3px;
+  border-top-color: transparent;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  border-bottom-color: transparent;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#jrslqjasvw .gt_heading {
+  background-color: #FFFFFF;
+  text-align: left;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#jrslqjasvw .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#jrslqjasvw .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 0;
+  padding-bottom: 4px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#jrslqjasvw .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#jrslqjasvw .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 3px;
+  border-top-color: transparent;
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  border-bottom-color: black;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#jrslqjasvw .gt_col_heading {
+  color: #333333;
+  background-color: white;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#jrslqjasvw .gt_column_spanner_outer {
+  color: #333333;
+  background-color: white;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#jrslqjasvw .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#jrslqjasvw .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#jrslqjasvw .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  border-bottom-color: black;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#jrslqjasvw .gt_group_heading {
+  padding: 8px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#jrslqjasvw .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#jrslqjasvw .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#jrslqjasvw .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#jrslqjasvw .gt_row {
+  padding-top: 3px;
+  padding-bottom: 3px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#jrslqjasvw .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 12px;
+}
+
+#jrslqjasvw .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#jrslqjasvw .gt_first_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+}
+
+#jrslqjasvw .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#jrslqjasvw .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#jrslqjasvw .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#jrslqjasvw .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#jrslqjasvw .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#jrslqjasvw .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding: 4px;
+}
+
+#jrslqjasvw .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#jrslqjasvw .gt_sourcenote {
+  font-size: 8px;
+  padding: 4px;
+}
+
+#jrslqjasvw .gt_left {
+  text-align: left;
+}
+
+#jrslqjasvw .gt_center {
+  text-align: center;
+}
+
+#jrslqjasvw .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#jrslqjasvw .gt_font_normal {
+  font-weight: normal;
+}
+
+#jrslqjasvw .gt_font_bold {
+  font-weight: bold;
+}
+
+#jrslqjasvw .gt_font_italic {
+  font-style: italic;
+}
+
+#jrslqjasvw .gt_super {
+  font-size: 65%;
+}
+
+#jrslqjasvw .gt_footnote_marks {
+  font-style: italic;
+  font-size: 65%;
+}
+</style>
+<div id="jrslqjasvw" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;"><table class="gt_table">
+  <thead class="gt_header">
+    <tr>
+      <th colspan="19" class="gt_heading gt_title gt_font_normal" style><strong>Top exporter by crop for European countries through the decades</strong></th>
+    </tr>
+    <tr>
+      <th colspan="19" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>% represents proportion of <strong>total crop</strong> export that decade</th>
+    </tr>
+  </thead>
+  <thead class="gt_col_headings">
+    <tr>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">Crop</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">60s</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">70s</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">80s</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">90s</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">2000s</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">2010s</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1"></th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">bananas</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/23px-Flag_of_Spain.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ESP</td>
+      <td class="gt_row gt_right">42&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/23px-Flag_of_Spain.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ESP</td>
+      <td class="gt_row gt_right">33&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/23px-Flag_of_Spain.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ESP</td>
+      <td class="gt_row gt_right">32&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/23px-Flag_of_Spain.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ESP</td>
+      <td class="gt_row gt_right">25&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Flag_of_Turkey.svg/23px-Flag_of_Turkey.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">TUR</td>
+      <td class="gt_row gt_right">24&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Flag_of_Turkey.svg/23px-Flag_of_Turkey.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">TUR</td>
+      <td class="gt_row gt_right">26&percnt;</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">barley</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">7&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">6&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Flag_of_Ireland.svg/23px-Flag_of_Ireland.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">IRL</td>
+      <td class="gt_row gt_right">7&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Flag_of_Ireland.svg/23px-Flag_of_Ireland.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">IRL</td>
+      <td class="gt_row gt_right">5&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Flag_of_Belgium_%28civil%29.svg/23px-Flag_of_Belgium_%28civil%29.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">BEL</td>
+      <td class="gt_row gt_right">5&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Flag_of_Belgium_%28civil%29.svg/23px-Flag_of_Belgium_%28civil%29.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">BEL</td>
+      <td class="gt_row gt_right">5&percnt;</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">beans</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">12&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/b/ba/Flag_of_Germany.svg/23px-Flag_of_Germany.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">DEU</td>
+      <td class="gt_row gt_right">13&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Flag_of_Ireland.svg/23px-Flag_of_Ireland.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">IRL</td>
+      <td class="gt_row gt_right">15&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">8&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Flag_of_Ireland.svg/23px-Flag_of_Ireland.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">IRL</td>
+      <td class="gt_row gt_right">8&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Flag_of_Montenegro.svg/23px-Flag_of_Montenegro.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">MNE</td>
+      <td class="gt_row gt_right">9&percnt;</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">maize</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Flag_of_Switzerland.svg/15px-Flag_of_Switzerland.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">CHE</td>
+      <td class="gt_row gt_right">12&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Flag_of_Switzerland.svg/15px-Flag_of_Switzerland.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">CHE</td>
+      <td class="gt_row gt_right">10&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Flag_of_Greece.svg/23px-Flag_of_Greece.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">GRC</td>
+      <td class="gt_row gt_right">10&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Flag_of_Greece.svg/23px-Flag_of_Greece.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">GRC</td>
+      <td class="gt_row gt_right">7&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Flag_of_Belgium_%28civil%29.svg/23px-Flag_of_Belgium_%28civil%29.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">BEL</td>
+      <td class="gt_row gt_right">6&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">5&percnt;</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">peas</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">11&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">10&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Flag_of_Switzerland.svg/15px-Flag_of_Switzerland.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">CHE</td>
+      <td class="gt_row gt_right">10&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/c/c3/Flag_of_France.svg/23px-Flag_of_France.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">FRA</td>
+      <td class="gt_row gt_right">6&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Flag_of_Ireland.svg/23px-Flag_of_Ireland.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">IRL</td>
+      <td class="gt_row gt_right">5&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">5&percnt;</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">potatoes</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">8&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">8&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">8&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">NLD</td>
+      <td class="gt_row gt_right">5&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Flag_of_Belgium_%28civil%29.svg/23px-Flag_of_Belgium_%28civil%29.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">BEL</td>
+      <td class="gt_row gt_right">4&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Flag_of_Belgium_%28civil%29.svg/23px-Flag_of_Belgium_%28civil%29.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">BEL</td>
+      <td class="gt_row gt_right">4&percnt;</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">rice</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/23px-Flag_of_Spain.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ESP</td>
+      <td class="gt_row gt_right">16&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/23px-Flag_of_Spain.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ESP</td>
+      <td class="gt_row gt_right">15&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/23px-Flag_of_Spain.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ESP</td>
+      <td class="gt_row gt_right">14&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Flag_of_Greece.svg/23px-Flag_of_Greece.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">GRC</td>
+      <td class="gt_row gt_right">12&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Flag_of_Greece.svg/23px-Flag_of_Greece.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">GRC</td>
+      <td class="gt_row gt_right">11&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Flag_of_Greece.svg/23px-Flag_of_Greece.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">GRC</td>
+      <td class="gt_row gt_right">11&percnt;</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">soybeans</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/0/03/Flag_of_Italy.svg/23px-Flag_of_Italy.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ITA</td>
+      <td class="gt_row gt_right">37&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/0/03/Flag_of_Italy.svg/23px-Flag_of_Italy.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ITA</td>
+      <td class="gt_row gt_right">22&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/0/03/Flag_of_Italy.svg/23px-Flag_of_Italy.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ITA</td>
+      <td class="gt_row gt_right">13&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/0/03/Flag_of_Italy.svg/23px-Flag_of_Italy.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">ITA</td>
+      <td class="gt_row gt_right">9&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Flag_of_Turkey.svg/23px-Flag_of_Turkey.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">TUR</td>
+      <td class="gt_row gt_right">7&percnt;</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Flag_of_Turkey.svg/23px-Flag_of_Turkey.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left">TUR</td>
+      <td class="gt_row gt_right">7&percnt;</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent; font-weight: bold;">wheat</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">NLD</td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">8&percnt;</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">NLD</td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">7&percnt;</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">NLD</td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">8&percnt;</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">NLD</td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">6&percnt;</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Flag_of_Ireland.svg/23px-Flag_of_Ireland.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">IRL</td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">5&percnt;</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Flag_of_Ireland.svg/23px-Flag_of_Ireland.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">IRL</td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">5&percnt;</td>
+    </tr>
+  </tbody>
+  <tfoot class="gt_sourcenotes">
+    <tr>
+      <td class="gt_sourcenote" colspan="19"><strong>DATA</strong>:   <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-01/readme.md">TidyTuesday wk 36</a> <br><strong>TABLE</strong>:    Duncan P</td>
+    </tr>
+  </tfoot>
+  
+</table></div>
+<p>I like it! There are a few issues, mainly with differing flag sizes because of the way they were uploaded on Wikipedia. We could potentially manually alter these by creating a column in the <code>flags</code> dataframe and using the <code>web_image()</code> function to transform images based on height / width specified in that but for the sake of this exercise, I’m happy with this. The main thing I’m unhappy with is the column names as I want to do something similar for my second table but unfortunately <code>cols_label()</code> does not yet seem to support <code>match()</code> regex functions.</p>
+<p>Just to demonstrate how I could now make a similar looking table with the function, I thought it’d be interesting to look at Netherlands and the UK in isolation and see where they each rank for every crop. Will remove <strong>bananas</strong>, <strong>rice</strong>, and <strong>soybeans</strong> as neither country export these. This is the data I’ll use:</p>
+<pre class="r"><code>uk_nl_ranked &lt;- 
+  eu_crop_data %&gt;%
+  group_by(decade, crop) %&gt;%
+  mutate(decade_crop_pct = ifelse(yield == 0, 0, yield / sum(yield))) %&gt;%
+  arrange(desc(decade_crop_pct), .by_group = TRUE) %&gt;% 
+  mutate(rank = row_number()) %&gt;% 
+  ungroup() %&gt;%
+  filter(code %in% c(&quot;GBR&quot;, &quot;NLD&quot;)) %&gt;% 
+  mutate(rank = ifelse(yield == 0, 0, rank)) %&gt;%
+  left_join(flags, by = &quot;country&quot;) %&gt;%
+  select(code, decade, rank, flag_url, crop) %&gt;%
+  rename(&quot;country&quot; = code) %&gt;%
+  filter(!crop %in% c(&quot;bananas&quot;, &quot;rice&quot;, &quot;soybeans&quot;)) %&gt;%
+  pivot_wider(names_from = c(decade, country), values_from = c(rank, flag_url)) %&gt;% 
+  select(crop, matches(&quot;flag.*60.*NLD&quot;), matches(&quot;60_NLD&quot;), matches(&quot;flag.*60.*GBR&quot;), matches(&quot;60_GBR&quot;),
+         matches(&quot;flag.*70.*NLD&quot;), matches(&quot;70_NLD&quot;), matches(&quot;flag.*70.*GBR&quot;), matches(&quot;70_GBR&quot;),
+         matches(&quot;flag.*80.*NLD&quot;), matches(&quot;80_NLD&quot;), matches(&quot;flag.*80.*GBR&quot;), matches(&quot;80_GBR&quot;), 
+         matches(&quot;flag.*90.*NLD&quot;), matches(&quot;90_NLD&quot;), matches(&quot;flag.*90.*GBR&quot;), matches(&quot;90_GBR&quot;), 
+         matches(&quot;flag.*2000.*NLD&quot;), matches(&quot;2000_NLD&quot;), matches(&quot;flag.*2000.*GBR&quot;), matches(&quot;2000_GBR&quot;), 
+          matches(&quot;flag.*2010.*NLD&quot;), matches(&quot;2010_NLD&quot;), matches(&quot;flag.*2010.*GBR&quot;), matches(&quot;2010_GBR&quot;))</code></pre>
+<div id="unaltered-table" class="section level4">
+<h4>Unaltered table</h4>
+<style>html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+
+#tdpguxrikh .gt_table {
+  display: table;
+  border-collapse: collapse;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#tdpguxrikh .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#tdpguxrikh .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#tdpguxrikh .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 0;
+  padding-bottom: 4px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#tdpguxrikh .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#tdpguxrikh .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#tdpguxrikh .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#tdpguxrikh .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#tdpguxrikh .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#tdpguxrikh .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#tdpguxrikh .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#tdpguxrikh .gt_group_heading {
+  padding: 8px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#tdpguxrikh .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#tdpguxrikh .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#tdpguxrikh .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#tdpguxrikh .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#tdpguxrikh .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 12px;
+}
+
+#tdpguxrikh .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#tdpguxrikh .gt_first_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+}
+
+#tdpguxrikh .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#tdpguxrikh .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#tdpguxrikh .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#tdpguxrikh .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#tdpguxrikh .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#tdpguxrikh .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding: 4px;
+}
+
+#tdpguxrikh .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#tdpguxrikh .gt_sourcenote {
+  font-size: 90%;
+  padding: 4px;
+}
+
+#tdpguxrikh .gt_left {
+  text-align: left;
+}
+
+#tdpguxrikh .gt_center {
+  text-align: center;
+}
+
+#tdpguxrikh .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#tdpguxrikh .gt_font_normal {
+  font-weight: normal;
+}
+
+#tdpguxrikh .gt_font_bold {
+  font-weight: bold;
+}
+
+#tdpguxrikh .gt_font_italic {
+  font-style: italic;
+}
+
+#tdpguxrikh .gt_super {
+  font-size: 65%;
+}
+
+#tdpguxrikh .gt_footnote_marks {
+  font-style: italic;
+  font-size: 65%;
+}
+</style>
+<div id="tdpguxrikh" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;"><table class="gt_table">
+  
+  <thead class="gt_col_headings">
+    <tr>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">crop</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_1960_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_1960_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_1960_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_1960_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_1970_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_1970_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_1970_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_1970_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_1980_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_1980_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_1980_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_1980_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_1990_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_1990_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_1990_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_1990_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_2000_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_2000_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_2000_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_2000_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_2010_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_2010_NLD</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">flag_url_2010_GBR</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank_2010_GBR</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr>
+      <td class="gt_row gt_left">barley</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">4</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">2</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">4</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">7</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">7</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left">beans</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">2</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">4</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">0</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left">maize</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">12</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">16</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+      <td class="gt_row gt_right">0</td>
+    </tr>
+  </tbody>
+  
+  
+</table></div>
+</div>
+<div id="table-with-function" class="section level4">
+<h4>Table with function</h4>
+<pre class="r"><code>uk_nl_ranked %&gt;%
+  gt() %&gt;%
+  cols_label(
+    flag_url_1960_GBR = &quot;&quot;,
+    flag_url_1970_GBR = &quot;&quot;,
+    flag_url_1980_GBR = &quot;&quot;,
+    flag_url_1990_GBR = &quot;&quot;,
+    flag_url_2000_GBR = &quot;&quot;,
+    flag_url_2010_GBR = &quot;&quot;,
+    flag_url_1960_NLD = &quot;&quot;,
+    flag_url_1970_NLD = &quot;&quot;,
+    flag_url_1980_NLD = &quot;&quot;,
+    flag_url_1990_NLD = &quot;&quot;,
+    flag_url_2000_NLD = &quot;&quot;,
+    flag_url_2010_NLD = &quot;&quot;,
+    rank_1960_GBR = &quot;&quot;,
+    rank_1970_GBR = &quot;&quot;,
+    rank_1980_GBR = &quot;&quot;,
+    rank_1990_GBR = &quot;&quot;,
+    rank_2000_GBR = &quot;&quot;,
+    rank_2010_GBR = &quot;&quot;,
+    rank_1960_NLD = &quot;&quot;,
+    rank_1970_NLD = &quot;&quot;,
+    rank_1980_NLD = &quot;&quot;,
+    rank_1990_NLD = &quot;&quot;,
+    rank_2000_NLD = &quot;&quot;,
+    rank_2010_NLD = &quot;&quot;
+  ) %&gt;%
+  tab_spanner(
+    label = &quot;60s&quot;,
+    columns = 2:5
+  ) %&gt;%
+  tab_spanner(
+    label = &quot;70s&quot;,
+    columns = 6:9
+  ) %&gt;%
+  tab_spanner(
+    label = &quot;80s&quot;,
+    columns = 10:13
+  ) %&gt;%
+  tab_spanner(
+    label = &quot;90s&quot;,
+    columns = 14:17
+  ) %&gt;%
+  tab_spanner(
+    label = &quot;2000s&quot;,
+    columns = 18:21
+  ) %&gt;%
+  tab_spanner(
+    label = &quot;2010s&quot;,
+    columns = 22:25
+  ) %&gt;%
+  tab_header(
+    title = md(&quot;**The Netherlands and the UK ranked by crop yield ratios**&quot;),
+    subtitle = md(&quot;0 means *unranked*&quot;)
+  ) %&gt;%
+  gt_theme_cropc()</code></pre>
+<style>@import url("https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+html {
+  font-family: 'Roboto Condensed', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+
+#cjixbclzzv .gt_table {
+  display: table;
+  border-collapse: collapse;
+  margin-left: 0;
+  margin-right: auto;
+  color: #333333;
+  font-size: 12px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 3px;
+  border-top-color: transparent;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  border-bottom-color: transparent;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#cjixbclzzv .gt_heading {
+  background-color: #FFFFFF;
+  text-align: left;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#cjixbclzzv .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#cjixbclzzv .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 0;
+  padding-bottom: 4px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#cjixbclzzv .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#cjixbclzzv .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 3px;
+  border-top-color: transparent;
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  border-bottom-color: black;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#cjixbclzzv .gt_col_heading {
+  color: #333333;
+  background-color: white;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#cjixbclzzv .gt_column_spanner_outer {
+  color: #333333;
+  background-color: white;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#cjixbclzzv .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#cjixbclzzv .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#cjixbclzzv .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  border-bottom-color: black;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#cjixbclzzv .gt_group_heading {
+  padding: 8px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#cjixbclzzv .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#cjixbclzzv .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#cjixbclzzv .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#cjixbclzzv .gt_row {
+  padding-top: 3px;
+  padding-bottom: 3px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#cjixbclzzv .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 12px;
+}
+
+#cjixbclzzv .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#cjixbclzzv .gt_first_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+}
+
+#cjixbclzzv .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#cjixbclzzv .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#cjixbclzzv .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#cjixbclzzv .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#cjixbclzzv .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#cjixbclzzv .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding: 4px;
+}
+
+#cjixbclzzv .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#cjixbclzzv .gt_sourcenote {
+  font-size: 8px;
+  padding: 4px;
+}
+
+#cjixbclzzv .gt_left {
+  text-align: left;
+}
+
+#cjixbclzzv .gt_center {
+  text-align: center;
+}
+
+#cjixbclzzv .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#cjixbclzzv .gt_font_normal {
+  font-weight: normal;
+}
+
+#cjixbclzzv .gt_font_bold {
+  font-weight: bold;
+}
+
+#cjixbclzzv .gt_font_italic {
+  font-style: italic;
+}
+
+#cjixbclzzv .gt_super {
+  font-size: 65%;
+}
+
+#cjixbclzzv .gt_footnote_marks {
+  font-style: italic;
+  font-size: 65%;
+}
+</style>
+<div id="cjixbclzzv" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;"><table class="gt_table">
+  <thead class="gt_header">
+    <tr>
+      <th colspan="25" class="gt_heading gt_title gt_font_normal" style><strong>The Netherlands and the UK ranked by crop yield ratios</strong></th>
+    </tr>
+    <tr>
+      <th colspan="25" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>0 means <em>unranked</em></th>
+    </tr>
+  </thead>
+  <thead class="gt_col_headings">
+    <tr>
+      <th class="gt_col_heading gt_center gt_columns_bottom_border" rowspan="2" colspan="1">Crop</th>
+      <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="4">
+        <span class="gt_column_spanner">60s</span>
+      </th>
+      <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="4">
+        <span class="gt_column_spanner">70s</span>
+      </th>
+      <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="4">
+        <span class="gt_column_spanner">80s</span>
+      </th>
+      <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="4">
+        <span class="gt_column_spanner">90s</span>
+      </th>
+      <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="4">
+        <span class="gt_column_spanner">2000s</span>
+      </th>
+      <th class="gt_center gt_columns_top_border gt_column_spanner_outer" rowspan="1" colspan="4">
+        <span class="gt_column_spanner">2010s</span>
+      </th>
+    </tr>
+    <tr>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"></th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">barley</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">4</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">2</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">4</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">7</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">7</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">beans</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">2</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">4</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">0</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">maize</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">12</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">16</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">0</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">0</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">peas</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">2</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">4</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">7</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">2</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">5</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">4</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">8</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">7</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">potatoes</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">4</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">1</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">3</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">2</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">4</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">2</td>
+      <td class="gt_row gt_left"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right">6</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent; font-weight: bold;">wheat</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">1</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">3</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">1</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">3</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">1</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">3</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">1</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">3</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">3</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">4</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">2</td>
+      <td class="gt_row gt_left" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;"><img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png" style="height:10px;"></td>
+      <td class="gt_row gt_right" style="border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: transparent;">4</td>
+    </tr>
+  </tbody>
+  <tfoot class="gt_sourcenotes">
+    <tr>
+      <td class="gt_sourcenote" colspan="25"><strong>DATA</strong>:   <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-01/readme.md">TidyTuesday wk 36</a> <br><strong>TABLE</strong>:    Duncan P</td>
+    </tr>
+  </tfoot>
+  
+</table></div>
+<p>It’s definitely not the easiest table to read but can see that it’s quick to make tables look similar with a simple function. If it weren’t for the drastically different column names, could have included that in the function and reduce the code length drastically. Hopefully in the future <code>gt</code> will allow us to use a <code>match()</code> regex for column names in which case we could reduce the <code>cols_label()</code> parameters to about 3 lines.</p>
+<p>Really enjoyed using <code>gt</code> and look forward to seeing the tables people have submitted for the RStudio <a href="https://blog.rstudio.com/2020/09/15/announcing-the-2020-rstudio-table-contest">data contest</a>. Definitely going to be implementing some themes at work where we can include things like the brand colours and logo!</p>
+</div>
+</div>
+</div>
