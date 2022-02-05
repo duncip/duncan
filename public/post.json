@@ -2,7 +2,17 @@
     
         
             {
-                "ref": "/2020/11/08/crops-europe-and-gt.html",
+                "ref": "https://duncip.netlify.app/2021/06/11/pythontest.html",
+                "title": "pythonTest",
+                "section": "post",
+                "date" : "2021.06.11",
+                "body": "\r\rHere we go. Let’s create a ggplot first and then we’ll try the same with matplotlib\nkey_crops %\u0026gt;%\rgroup_by(country) %\u0026gt;%\rsummarise(avg = mean(wheat_tonnes_per_hectare, na.rm = TRUE)) %\u0026gt;%\rarrange(desc(avg)) %\u0026gt;%\rhead(10) %\u0026gt;%\rggplot(aes(country, avg)) +\rgeom_col()\rNow try the same in Python..\nimport pandas as pd\rimport matplotlib.pyplot as plt\rp_df = pd.read_csv(\u0026#39;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-01/key_crop_yields.csv\u0026#39;)\rp_df.head()\r## Entity ... Bananas (tonnes per hectare)\r## 0 Afghanistan ... NaN\r## 1 Afghanistan ... NaN\r## 2 Afghanistan ... NaN\r## 3 Afghanistan ... NaN\r## 4 Afghanistan ... NaN\r## ## [5 rows x 14 columns]\rWe’ve loaded the DF\nt = p_df.groupby(\u0026quot;Entity\u0026quot;).agg(averageVal = (\u0026quot;Wheat (tonnes per hectare)\u0026quot;, \u0026quot;mean\u0026quot;)).sort_values(\u0026quot;averageVal\u0026quot;, ascending=False).head(10)\rt.reset_index(inplace=True)\rplt.bar(t[\u0026quot;Entity\u0026quot;], t[\u0026quot;averageVal\u0026quot;])\r## \u0026lt;BarContainer object of 10 artists\u0026gt;\rplt.show()\rdwdw\n"
+            }
+        
+    ,
+        
+            {
+                "ref": "https://duncip.netlify.app/2020/11/08/crops-europe-and-gt.html",
                 "title": "Crops, Europe, and {gt}",
                 "section": "post",
                 "date" : "2020.11.08",
@@ -12,7 +22,7 @@
     ,
         
             {
-                "ref": "/2020/06/27/caribou-and-their-movement.html",
+                "ref": "https://duncip.netlify.app/2020/06/27/caribou-and-their-movement.html",
                 "title": "Caribou and their movement - maps in R",
                 "section": "post",
                 "date" : "2020.06.27",
@@ -22,7 +32,7 @@
     ,
         
             {
-                "ref": "/2020/06/08/exploring-tidymodels-with-regression.html",
+                "ref": "https://duncip.netlify.app/2020/06/08/exploring-tidymodels-with-regression.html",
                 "title": "Exploring Tidymodels with regression",
                 "section": "post",
                 "date" : "2020.06.08",
@@ -32,7 +42,7 @@
     ,
         
             {
-                "ref": "/2020/05/10/broadway-continues-to-rise.html",
+                "ref": "https://duncip.netlify.app/2020/05/10/broadway-continues-to-rise.html",
                 "title": "Broadway continues to rise..",
                 "section": "post",
                 "date" : "2020.05.10",

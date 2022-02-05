@@ -150,7 +150,7 @@ top_eu_table_data <-
   select(-country)
 ```
 
-To show you what the table would look like with any alterations at all, here's the first few lines..
+To show you what the table would look like with no alterations at all, here's the first few lines..
 
 ```{r echo = FALSE}
 top_eu_table_data %>%

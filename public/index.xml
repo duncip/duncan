@@ -1,7 +1,7 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 	<channel>
 		<title>Duncan Pastoors</title>
-		<link>/</link>
+		<link>https://duncip.netlify.app/</link>
 		<description>Recent content on Duncan Pastoors</description>
 		<generator>Hugo -- gohugo.io</generator>
 		
@@ -9,15 +9,25 @@
 		
 		<managingEditor>Page(/_index.md) (duncan pastoors)</managingEditor>
     	
-  		<lastBuildDate>Sun, 08 Nov 2020 00:00:00 +0000</lastBuildDate>
+  		<lastBuildDate>Fri, 11 Jun 2021 00:00:00 +0000</lastBuildDate>
 		
-		<atom:link href="/" rel="self" type="application/rss+xml" />
+		<atom:link href="https://duncip.netlify.app/" rel="self" type="application/rss+xml" />
 		
 		<item>
+			<title>pythonTest</title>
+			<link>https://duncip.netlify.app/2021/06/11/pythontest.html</link>
+			<pubDate>Fri, 11 Jun 2021 00:00:00 +0000</pubDate>
+			<guid>https://duncip.netlify.app/2021/06/11/pythontest.html</guid>
+			<description>Here we go. Let’s create a ggplot first and then we’ll try the same with matplotlib
+key_crops %&amp;gt;%group_by(country) %&amp;gt;%summarise(avg = mean(wheat_tonnes_per_hectare, na.rm = TRUE)) %&amp;gt;%arrange(desc(avg)) %&amp;gt;%head(10) %&amp;gt;%ggplot(aes(country, avg)) +geom_col()Now try the same in Python..
+import pandas as pdimport matplotlib.pyplot as pltp_df = pd.read_csv(&amp;#39;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-01/key_crop_yields.csv&amp;#39;)p_df.head()## Entity ... Bananas (tonnes per hectare)## 0 Afghanistan ... NaN## 1 Afghanistan .</description>
+		</item>
+      	
+		<item>
 			<title>Crops, Europe, and {gt}</title>
-			<link>/2020/11/08/crops-europe-and-gt.html</link>
+			<link>https://duncip.netlify.app/2020/11/08/crops-europe-and-gt.html</link>
 			<pubDate>Sun, 08 Nov 2020 00:00:00 +0000</pubDate>
-			<guid>/2020/11/08/crops-europe-and-gt.html</guid>
+			<guid>https://duncip.netlify.app/2020/11/08/crops-europe-and-gt.html</guid>
 			<description>
 
 
@@ -27,9 +37,9 @@
       	
 		<item>
 			<title>Caribou and their movement - maps in R</title>
-			<link>/2020/06/27/caribou-and-their-movement.html</link>
+			<link>https://duncip.netlify.app/2020/06/27/caribou-and-their-movement.html</link>
 			<pubDate>Sat, 27 Jun 2020 00:00:00 +0000</pubDate>
-			<guid>/2020/06/27/caribou-and-their-movement.html</guid>
+			<guid>https://duncip.netlify.app/2020/06/27/caribou-and-their-movement.html</guid>
 			<description>
 
 
@@ -39,9 +49,9 @@
       	
 		<item>
 			<title>Exploring Tidymodels with regression</title>
-			<link>/2020/06/08/exploring-tidymodels-with-regression.html</link>
+			<link>https://duncip.netlify.app/2020/06/08/exploring-tidymodels-with-regression.html</link>
 			<pubDate>Mon, 08 Jun 2020 00:00:00 +0000</pubDate>
-			<guid>/2020/06/08/exploring-tidymodels-with-regression.html</guid>
+			<guid>https://duncip.netlify.app/2020/06/08/exploring-tidymodels-with-regression.html</guid>
 			<description>
 
 
@@ -51,9 +61,9 @@
       	
 		<item>
 			<title>Broadway continues to rise..</title>
-			<link>/2020/05/10/broadway-continues-to-rise.html</link>
+			<link>https://duncip.netlify.app/2020/05/10/broadway-continues-to-rise.html</link>
 			<pubDate>Sun, 10 May 2020 00:00:00 +0000</pubDate>
-			<guid>/2020/05/10/broadway-continues-to-rise.html</guid>
+			<guid>https://duncip.netlify.app/2020/05/10/broadway-continues-to-rise.html</guid>
 			<description>
 
 

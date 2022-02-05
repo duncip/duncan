@@ -1,0 +1,584 @@
+---
+title: Exploring Boardgames with R, XGBoost with scikit-learn
+description: Using R to do some basic EDA of this board games dataset and then using scikit-learn to see what makes a game successful
+author: Duncan
+date: '2022-02-05'
+slug: boardgames-exploration-and-modeling
+categories: [modeling, xgboost, python, r]
+tags: [modeling, python, r]
+editor_options: 
+  chunk_output_type: console
+---
+
+<script src="/rmarkdown-libs/header-attrs/header-attrs.js"></script>
+
+
+<p>Improving scikit-learn skills and seeing how reticulate interacts with blogdown
+<!--more--></p>
+<p>When the pandemic first started, we begun seeing quite a few adverts for board games on our social media which was probably linked to the fact that we kept searching for things to do! One that stood out to us was Veiled Fate, which became my other half’s first board game purchase. Two years later and the game still hasn’t shipped, however, our love for board games has only grown since then and we’ve purchased a lot of games we wouldn’t have thought of before. A particular favourite of mine is Root! Anyway, that’s why when this week’s <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2022/2022-01-25/readme.md">TidyTuesday</a> came out with a great dataset from <a href="https://boardgamegeek.com/">BGG</a>, I knew I had to get involved.</p>
+<p>At work my colleagues only use Python so as someone who loves R it’s been a bit of a learning experience switching over. That said, the <code>reticulate</code> package (and Databricks’ ability to use R/Python/SQL in one notebook) is great for allowing me to do EDA in a language I’m comfortable in, and modeling in a language people around the business will understand. So here I’ll begin having a look at the dataset using regular old R and then switch to Python’s <code>scikit-learn</code> to see if my board game idea would be a hit with BGG browsers.</p>
+<p>There are two separate dataframes: <code>ratings</code> which contains the name of the game, year it was released, rank, average score, and amount of reviews. Then there’s <code>details</code> which gives us a lot of indepth detail about the actual game, such as min/max players, how long it takes to play, and what kind of game it is. We can join the two using the <code>id</code> column.</p>
+<pre class="r"><code>ratings_joint &lt;-
+  ratings %&gt;%
+  left_join(details, by = &quot;id&quot;)
+
+ratings_joint %&gt;%
+  select(rank, name, year, average, users_rated, minplayers, maxplayers, boardgamecategory) %&gt;%
+  arrange(rank) %&gt;%
+  head(10) %&gt;%
+  gt() %&gt;%
+  opt_all_caps() %&gt;%
+  opt_table_font(
+    font = list(
+      google_font(&quot;Roboto&quot;),
+      default_fonts()
+    )
+  ) %&gt;% 
+  tab_options(
+    column_labels.background.color = &quot;white&quot;,
+    table.border.top.width = px(3),
+    table.border.top.color = &quot;white&quot;,
+    table.border.bottom.color = &quot;white&quot;,
+    table.border.bottom.width = px(3),
+    column_labels.border.top.width = px(3),
+    column_labels.border.top.color = &quot;white&quot;,
+    column_labels.border.bottom.width = px(3),
+    column_labels.border.bottom.color = &quot;black&quot;,
+    data_row.padding = px(3),
+    table.font.size = 12,
+    heading.align = &quot;right&quot;
+  ) </code></pre>
+<div id="fejidjbkfj" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>@import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+html {
+  font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+
+#fejidjbkfj .gt_table {
+  display: table;
+  border-collapse: collapse;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 12px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 3px;
+  border-top-color: #FFFFFF;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#fejidjbkfj .gt_heading {
+  background-color: #FFFFFF;
+  text-align: right;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#fejidjbkfj .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#fejidjbkfj .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 0;
+  padding-bottom: 6px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#fejidjbkfj .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#fejidjbkfj .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 3px;
+  border-top-color: #FFFFFF;
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  border-bottom-color: #000000;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#fejidjbkfj .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#fejidjbkfj .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#fejidjbkfj .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#fejidjbkfj .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#fejidjbkfj .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  border-bottom-color: #000000;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#fejidjbkfj .gt_group_heading {
+  padding: 8px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#fejidjbkfj .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#fejidjbkfj .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#fejidjbkfj .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#fejidjbkfj .gt_row {
+  padding-top: 3px;
+  padding-bottom: 3px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#fejidjbkfj .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 80%;
+  font-weight: bolder;
+  text-transform: uppercase;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 12px;
+}
+
+#fejidjbkfj .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#fejidjbkfj .gt_first_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+}
+
+#fejidjbkfj .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#fejidjbkfj .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#fejidjbkfj .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#fejidjbkfj .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#fejidjbkfj .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#fejidjbkfj .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding: 4px;
+}
+
+#fejidjbkfj .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#fejidjbkfj .gt_sourcenote {
+  font-size: 90%;
+  padding: 4px;
+}
+
+#fejidjbkfj .gt_left {
+  text-align: left;
+}
+
+#fejidjbkfj .gt_center {
+  text-align: center;
+}
+
+#fejidjbkfj .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#fejidjbkfj .gt_font_normal {
+  font-weight: normal;
+}
+
+#fejidjbkfj .gt_font_bold {
+  font-weight: bold;
+}
+
+#fejidjbkfj .gt_font_italic {
+  font-style: italic;
+}
+
+#fejidjbkfj .gt_super {
+  font-size: 65%;
+}
+
+#fejidjbkfj .gt_footnote_marks {
+  font-style: italic;
+  font-weight: normal;
+  font-size: 65%;
+}
+</style>
+<table class="gt_table">
+  
+  <thead class="gt_col_headings">
+    <tr>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">rank</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">name</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">year</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">average</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">users_rated</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">minplayers</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1">maxplayers</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1">boardgamecategory</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr><td class="gt_row gt_right">1</td>
+<td class="gt_row gt_left">Gloomhaven</td>
+<td class="gt_row gt_right">2017</td>
+<td class="gt_row gt_right">8.74</td>
+<td class="gt_row gt_right">47827</td>
+<td class="gt_row gt_right">1</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">['Adventure', 'Exploration', 'Fantasy', 'Fighting', 'Miniatures']</td></tr>
+    <tr><td class="gt_row gt_right">2</td>
+<td class="gt_row gt_left">Pandemic Legacy: Season 1</td>
+<td class="gt_row gt_right">2015</td>
+<td class="gt_row gt_right">8.59</td>
+<td class="gt_row gt_right">45041</td>
+<td class="gt_row gt_right">2</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">['Environmental', 'Medical']</td></tr>
+    <tr><td class="gt_row gt_right">3</td>
+<td class="gt_row gt_left">Brass: Birmingham</td>
+<td class="gt_row gt_right">2018</td>
+<td class="gt_row gt_right">8.66</td>
+<td class="gt_row gt_right">25484</td>
+<td class="gt_row gt_right">2</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">['Economic', 'Industry / Manufacturing', 'Post-Napoleonic', 'Transportation']</td></tr>
+    <tr><td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">Terraforming Mars</td>
+<td class="gt_row gt_right">2016</td>
+<td class="gt_row gt_right">8.42</td>
+<td class="gt_row gt_right">74216</td>
+<td class="gt_row gt_right">1</td>
+<td class="gt_row gt_right">5</td>
+<td class="gt_row gt_left">['Economic', 'Environmental', 'Industry / Manufacturing', 'Science Fiction', 'Space Exploration', 'Territory Building']</td></tr>
+    <tr><td class="gt_row gt_right">5</td>
+<td class="gt_row gt_left">Twilight Imperium: Fourth Edition</td>
+<td class="gt_row gt_right">2017</td>
+<td class="gt_row gt_right">8.68</td>
+<td class="gt_row gt_right">16025</td>
+<td class="gt_row gt_right">3</td>
+<td class="gt_row gt_right">6</td>
+<td class="gt_row gt_left">['Civilization', 'Economic', 'Exploration', 'Negotiation', 'Political', 'Science Fiction', 'Space Exploration', 'Wargame']</td></tr>
+    <tr><td class="gt_row gt_right">6</td>
+<td class="gt_row gt_left">Gloomhaven: Jaws of the Lion</td>
+<td class="gt_row gt_right">2020</td>
+<td class="gt_row gt_right">8.68</td>
+<td class="gt_row gt_right">15918</td>
+<td class="gt_row gt_right">1</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">['Adventure', 'Exploration', 'Fantasy', 'Fighting', 'Miniatures']</td></tr>
+    <tr><td class="gt_row gt_right">7</td>
+<td class="gt_row gt_left">Gaia Project</td>
+<td class="gt_row gt_right">2017</td>
+<td class="gt_row gt_right">8.47</td>
+<td class="gt_row gt_right">19169</td>
+<td class="gt_row gt_right">1</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">['Economic', 'Science Fiction', 'Space Exploration', 'Territory Building']</td></tr>
+    <tr><td class="gt_row gt_right">8</td>
+<td class="gt_row gt_left">Star Wars: Rebellion</td>
+<td class="gt_row gt_right">2016</td>
+<td class="gt_row gt_right">8.42</td>
+<td class="gt_row gt_right">25586</td>
+<td class="gt_row gt_right">2</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">['Civil War', 'Fighting', 'Miniatures', 'Movies / TV / Radio theme', 'Science Fiction', 'Wargame']</td></tr>
+    <tr><td class="gt_row gt_right">9</td>
+<td class="gt_row gt_left">Through the Ages: A New Story of Civilization</td>
+<td class="gt_row gt_right">2015</td>
+<td class="gt_row gt_right">8.38</td>
+<td class="gt_row gt_right">25605</td>
+<td class="gt_row gt_right">2</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">['Card Game', 'Civilization', 'Economic']</td></tr>
+    <tr><td class="gt_row gt_right">10</td>
+<td class="gt_row gt_left">War of the Ring: Second Edition</td>
+<td class="gt_row gt_right">2012</td>
+<td class="gt_row gt_right">8.51</td>
+<td class="gt_row gt_right">15498</td>
+<td class="gt_row gt_right">2</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">['Adventure', 'Fantasy', 'Fighting', 'Miniatures', 'Novel-based', 'Territory Building', 'Wargame']</td></tr>
+  </tbody>
+  
+  
+</table>
+</div>
+<p>The top 10 are dominated by games released in the last 10 or so years, so I wonder if there’s a general trend in newer games being received better as publishers learn what people like. In terms of categories, for the model we’ll have to split them out but we can quickly see that people love economic games and adventure also ranks highly. It appears that 4 max players is the sweet spot, and people also love playing alone! I’ve never tried Gloomhaven but have watched quite a few playthroughs and from what I know, it’s a highly complex game so it’s interesting to see how well received it is.</p>
+<p><img src="/post/2022-01-30-boardgames-exploration-and-modeling_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>We can see quickly that the amount of board games releasing has gone up substantially. That said, it seems to have slowed down during 2020, potentially due to the pandemic and global shortages.</p>
+<p><img src="/post/2022-01-30-boardgames-exploration-and-modeling_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>At the same time, average rating has gone up for board games. There could be a few reasons for this but seems like publishers are aware of what does well with audiences. It’ll be interesting to see what the model picks out as key variables for scoring highly - maybe more games are incorporating economic aspects, or maybe games have just gotten better as the years passed.</p>
+<div id="quick-data-prep" class="section level1">
+<h1>Quick data prep</h1>
+<p>There are a lot of features in the original data but to keep the model simple, I’m going to discard most of the ‘boardgame’ adjacent variables like family, expansion etc.. I will however keep mechanic and category as I think these can help predict what kind of game will be successful. I’ll also get rid of any NAs (there aren’t many), and clean up the category and mechanic columns.</p>
+<pre class="r"><code>ratings_joint_d &lt;-
+  ratings_joint %&gt;%
+  select(average, contains(&quot;min&quot;), contains(&quot;max&quot;), boardgamecategory, boardgamemechanic) %&gt;%
+  mutate(boardgamecategory = str_to_lower(boardgamecategory),
+         boardgamecategory = str_squish(boardgamecategory),
+         boardgamemechanic = str_to_lower(boardgamemechanic),
+         boardgamemechanic = str_squish(boardgamemechanic)) %&gt;% 
+  drop_na() %&gt;%
+  rename(&quot;mechanic_&quot; = boardgamemechanic,
+         &quot;category_&quot; = boardgamecategory)</code></pre>
+<p>XGBoost is one of the most popular models these days because it can handle both regression and classification. As I’m dealing with a continuous target variable in <em>average</em>, I’ll be using the regression function. To get this to work I need to split out the categories and mechanics, and then turn these into dummy variables so the model knows how to interpret each feature. I would usually use a fold and test what parameters to use but because I’m just trying to see how reticulate interacts with blogdown I’m going to stick to a simple training/testing set.</p>
+<pre class="python"><code>#chars = &quot;[]&#39;\&quot;&quot;
+
+onehot = [&#39;mechanic_&#39;, &#39;category_&#39;]
+
+for cat in onehot:
+    ratings_joint_py.loc[:,cat] = ratings_joint_py[cat].str.replace(&#39;[^A-Za-z0-9_,]+&#39;, &quot;&quot;, regex=True).copy()
+    onehotencoded = ratings_joint_py[cat].str.get_dummies(sep=&#39;,&#39;,).add_prefix(cat)
+    onehotencoded.fillna(0, inplace=True)
+    print(cat, len(onehotencoded.columns))
+    ratings_joint_py = pd.concat([ratings_joint_py.drop(cat, axis=1), onehotencoded], axis=1)
+    ratings_joint_py = ratings_joint_py.loc[:,~ratings_joint_py.columns.duplicated()].copy()
+    
+#&gt; mechanic_ 185
+#&gt; category_ 84
+print(&quot;{rows} rows and {cols} columns&quot;.format(rows = len(ratings_joint_py), cols = len(ratings_joint_py.columns)))
+#&gt; 19810 rows and 275 columns</code></pre>
+</div>
+<div id="model" class="section level1">
+<h1>Model</h1>
+<pre class="python"><code>xgb_regressor = xgb.XGBRegressor(objective = &#39;reg:linear&#39;, n_estimators = 10, seed = 345)
+xgb_regressor.fit(X_train, y_train)
+#&gt; [13:09:19] WARNING: d:\bld\xgboost-split_1643227225381\work\src\objective\regression_obj.cu:188: reg:linear is now deprecated in favor of reg:squarederror.
+#&gt; XGBRegressor(base_score=0.5, booster=&#39;gbtree&#39;, colsample_bylevel=1,
+#&gt;              colsample_bynode=1, colsample_bytree=1, enable_categorical=False,
+#&gt;              gamma=0, gpu_id=-1, importance_type=None,
+#&gt;              interaction_constraints=&#39;&#39;, learning_rate=0.300000012,
+#&gt;              max_delta_step=0, max_depth=6, min_child_weight=1, missing=nan,
+#&gt;              monotone_constraints=&#39;()&#39;, n_estimators=10, n_jobs=8,
+#&gt;              num_parallel_tree=1, objective=&#39;reg:linear&#39;, predictor=&#39;auto&#39;,
+#&gt;              random_state=345, reg_alpha=0, reg_lambda=1, scale_pos_weight=1,
+#&gt;              seed=345, subsample=1, tree_method=&#39;exact&#39;, validate_parameters=1,
+#&gt;              verbosity=None)
+pred = xgb_regressor.predict(X_test)
+
+rmse = np.sqrt(MSE(y_test, pred))
+print(&quot;RMSE: % f&quot; %(rmse))
+#&gt; RMSE:  0.723436</code></pre>
+<p>Not the greatest score of all time but considering we didn’t test any specific parameters, that is pretty good. I want to quickly see what features were important in predicting the ratings for this model.</p>
+</div>
+<div id="model-visualisation" class="section level1">
+<h1>Model visualisation</h1>
+<p>Thanks to the <code>xgboost</code> package I can use a simply command to visualise these features:</p>
+<pre class="python"><code>import matplotlib.pyplot as plt
+
+xgb.plot_importance(xgb_regressor, max_num_features = 20)
+#&gt; &lt;AxesSubplot:title={&#39;center&#39;:&#39;Feature importance&#39;}, xlabel=&#39;F score&#39;, ylabel=&#39;Features&#39;&gt;
+plt.rcParams[&#39;figure.figsize&#39;] = [6,4]
+plt.rcParams.update({&#39;font.size&#39;:6})
+plt.tight_layout()
+plt.show()</code></pre>
+<p><img src="/post/2022-01-30-boardgames-exploration-and-modeling_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>However, if I want to create a graph in R I’ll just have to do some extra steps and create a new pandas dataframe but it’s nice to see how you can simply use the two languages one after another:</p>
+<p><strong>Python syntax</strong>:</p>
+<pre class="python"><code>feature_importance = xgb_regressor.get_booster().get_score(importance_type=&#39;weight&#39;)
+keys = list(feature_importance.keys())
+values = list(feature_importance.values())
+
+feature_importance_df = pd.DataFrame(data=values, index=keys, columns=[&quot;score&quot;]).sort_values(by = &quot;score&quot;, ascending=False)</code></pre>
+<p><strong>R syntax</strong>:</p>
+<pre class="r"><code>py$feature_importance_df %&gt;%
+  head(20) %&gt;%
+  rownames_to_column(var = &quot;feature&quot;) %&gt;%
+  ggplot(aes(fct_reorder(feature, score), score)) +
+  geom_point() +
+  coord_flip() +
+  theme(plot.title.position = &quot;plot&quot;,
+        plot.title = element_text(size = 10),
+        plot.subtitle = element_text(size = 9),
+        axis.text.x = element_text(size = 6),
+        axis.text.y = element_text(size = 6),
+        legend.title = element_blank()) +
+  labs(x = NULL, y = NULL,
+         title = &quot;Feature importance&quot;)</code></pre>
+<p><img src="/post/2022-01-30-boardgames-exploration-and-modeling_files/figure-html/unnamed-chunk-11-3.png" width="672" /></p>
+<p>Done! It seems very easy to switch between the two languages. I especially like how <code>reticulate</code> makes it possible to call dataframes between the two languages without any issue. I did have some problems with installing Python packages but… even when not using RStudio that happens so can only blame the end-user.</p>
+</div>
