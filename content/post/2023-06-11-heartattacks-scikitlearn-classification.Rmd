@@ -1,0 +1,35 @@
+---
+title: Using scikit's pipeline for a Heart Attack classification model
+description: Using a mix of R and Python for EDA and modelling
+draft: true
+author: Duncan
+date: '2023-06-11'
+slug: heart-attack-classification-pipeline
+categories: [modeling, classification, python, r]
+tags: [modeling, python, r]
+editor_options: 
+  chunk_output_type: console
+---
+
+Testing a pipeline for variety of classification models
+<!--more-->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      error = FALSE,
+                      comment = "#>",
+                      collapse = TRUE)
+
+library(tidyverse)
+library(hrbrthemes)
+library(gt)
+library(cowplot)
+library(reticulate)
+theme_set(theme_ipsum_rc())
+
+ratings <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-01-25/ratings.csv')
+details <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-01-25/details.csv')
+```
+
+

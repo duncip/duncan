@@ -3,130 +3,145 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>https://duncip.netlify.app/</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories.html</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/categories.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/post.html</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/2022/02/05/boardgames-exploration-and-modeling.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/python.html</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/tags/modeling.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/2021/06/11/pythontest.html</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/categories/modeling.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/r.html</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/post.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/scraping.html</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/tags/python.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/scraping.html</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/categories/python.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags.html</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/categories/r.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/tidytuesday.html</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/tags/r.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/tidytuesday.html</loc>
-    <lastmod>2021-06-11T00:00:00+00:00</lastmod>
+    <loc>https://duncanpastoors.com/tags.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/2020/11/08/crops-europe-and-gt.html</loc>
+    <loc>https://duncanpastoors.com/categories/xgboost.html</loc>
+    <lastmod>2022-02-05T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://duncanpastoors.com/2020/11/08/crops-europe-and-gt.html</loc>
     <lastmod>2020-11-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/tables.html</loc>
+    <loc>https://duncanpastoors.com/tags/scraping.html</loc>
     <lastmod>2020-11-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/visualisation.html</loc>
+    <loc>https://duncanpastoors.com/categories/scraping.html</loc>
     <lastmod>2020-11-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/2020/06/27/caribou-and-their-movement.html</loc>
+    <loc>https://duncanpastoors.com/categories/tables.html</loc>
+    <lastmod>2020-11-08T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://duncanpastoors.com/tags/tidytuesday.html</loc>
+    <lastmod>2020-11-08T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://duncanpastoors.com/categories/tidytuesday.html</loc>
+    <lastmod>2020-11-08T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://duncanpastoors.com/tags/visualisation.html</loc>
+    <lastmod>2020-11-08T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://duncanpastoors.com/2020/06/27/caribou-and-their-movement.html</loc>
     <lastmod>2020-06-27T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/2020/06/08/exploring-tidymodels-with-regression.html</loc>
+    <loc>https://duncanpastoors.com/2020/06/08/exploring-tidymodels-with-regression.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/modeling.html</loc>
+    <loc>https://duncanpastoors.com/tags/regression.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/modeling.html</loc>
+    <loc>https://duncanpastoors.com/categories/regression.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/regression.html</loc>
+    <loc>https://duncanpastoors.com/tags/tidymodels.html</loc>
     <lastmod>2020-06-08T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/categories/regression.html</loc>
-    <lastmod>2020-06-08T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://duncip.netlify.app/tags/tidymodels.html</loc>
-    <lastmod>2020-06-08T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://duncip.netlify.app/2020/05/10/broadway-continues-to-rise.html</loc>
+    <loc>https://duncanpastoors.com/2020/05/10/broadway-continues-to-rise.html</loc>
     <lastmod>2020-05-10T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/data-analysis.html</loc>
+    <loc>https://duncanpastoors.com/tags/data-analysis.html</loc>
     <lastmod>2020-05-10T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/archives.html</loc>
+    <loc>https://duncanpastoors.com/archives.html</loc>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/tags/index/</loc>
+    <loc>https://duncanpastoors.com/tags/index/</loc>
   </url>
   
   <url>
-    <loc>https://duncip.netlify.app/search.html</loc>
+    <loc>https://duncanpastoors.com/search.html</loc>
   </url>
   
 </urlset>
