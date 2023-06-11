@@ -1,5 +1,5 @@
 theme = "harbor"
-baseURL = "https://duncip.netlify.app/"
+baseURL = "https://duncanpastoors.com/"
 title = "Duncan Pastoors"
 paginate = 4
 languageCode = "en"
@@ -30,7 +30,7 @@ uglyurls = true
 [params]
   mainSections = ["post"]
   favicon = "favicon.ico"
-  Description = "Documenting R / Python learnings - mostly using TidyTuesday challenges."
+  Description = "Documenting R / Python learning for myself"
 
   [params.logo]
     url = "dp_logo.png"
