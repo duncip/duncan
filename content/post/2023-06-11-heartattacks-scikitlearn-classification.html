@@ -16,14 +16,7 @@ editor_options:
 
 <p>Testing a pipeline for variety of classification models
 <!--more--></p>
-<ol style="list-style-type: decimal">
-<li>Check data for nulls / types</li>
-<li>Check imbalance of target variable</li>
-<li>Check correlation between variables</li>
-<li>Split dataset into train/test</li>
-<li>Try model evaluation with no changes</li>
-<li>. Build pipeline (try StandardScaler)</li>
-</ol>
+<p>I’ve recently been going through some <a href="https://www.dataschool.io/">dataschool.io</a> scikit-learn videos and one of the tips that stood out to me was about how you can use a <a href="https://www.youtube.com/watch?v=gd-TZut-oto">simple approach</a> for many different machine learning problems. I liked the usage of the <code>Pipeline</code> function in particular because it reminded me of R functionality and so wanted to give it a try. I found one the most popular classification datasets on Kaggle, the <a href="https://www.kaggle.com/datasets/johnsmith88/heart-disease-dataset?datasetId=216167&amp;searchQuery=kn">heart attack dataset</a> and here we are. I don’t get to use R very much any more so I still want to do some EDA / plotting in R and then do the modelling using scikit-learn. Let’s have a look at the dataset:</p>
 <pre><code>#&gt; # A tibble: 5 x 14
 #&gt;     age   sex    cp trestbps  chol   fbs restecg thalach exang oldpeak slope
 #&gt;   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt; &lt;dbl&gt;
@@ -97,18 +90,20 @@ editor_options:
 <p>We can see that <code>age</code> is fine but <code>trestbps</code>, <code>chol</code>, and <code>thalach</code> all have outliers that we need to be aware of. Not going to do anything to them yet but will see if changing those makes a difference to the model evaluation. Lastly I’ll check if there are obvious correlations between variables and if there’s a class imbalance for the target variable, and then on to the model!</p>
 <pre class="r"><code>corrplot::corrplot(cor(heart_df, method=&quot;spearman&quot;))</code></pre>
 <p><img src="/post/2023-06-11-heartattacks-scikitlearn-classification_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>I also want to double-check if there’s a class imbalance in case we need to do some under/over-sampling</p>
 <p><img src="/post/2023-06-11-heartattacks-scikitlearn-classification_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
 <p>All good here :)</p>
 <div id="modelling" class="section level1">
 <h1>Modelling</h1>
-<p>Preferably we would’ve tried things like one hot encoding, filling null values etc. all in a single pipeline but because the dataset we’re working with is already great, we don’t need to do that. So instead, we’ll just do the scaling in the pipeline so we can easily switch between 3 models. For this, I’ll use Python</p>
+<p>Preferably we would’ve tried things like one hot encoding, filling null values etc. all in a single pipeline but because the dataset we’re working with is already great, we don’t need to do that. So instead, we’ll just do the scaling in the pipeline so we can easily switch between 2 models. For this, I’ll use Python</p>
 <pre class="python"><code>import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.pipeline import make_pipeline
+import seaborn as sns
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import confusion_matrix, recall_score, precision_score, f1_score, accuracy_score
+from sklearn.metrics import confusion_matrix, recall_score, precision_score, f1_score, accuracy_score, classification_report, roc_curve, roc_auc_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 
@@ -127,6 +122,189 @@ heart_df_p.head()
 <pre class="python"><code>X = heart_df_p.drop(&#39;target&#39;, axis=1)
 y = heart_df_p[&#39;target&#39;]
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=4)</code></pre>
-<pre class="python"><code>heart_df_p[&#39;target&#39;].shape
-#&gt; (1025,)</code></pre>
+<p>Now we can start our Pipeline. Again, even though there aren’t many steps needed for this data I still think the pipeline allows for great readability</p>
+<pre class="python"><code>pipeline_lr = Pipeline([(&#39;scl&#39;, StandardScaler()),
+                            (&#39;clf&#39;, LogisticRegression(random_state=12))])
+                            
+pipeline_knn = Pipeline([(&#39;scl&#39;, StandardScaler()),
+                            (&#39;clf&#39;, KNeighborsClassifier())])
+                            
+print(&#39;LR: &#39; + str(cross_val_score(pipeline_lr, X_train, y_train, cv=5, scoring=&#39;accuracy&#39;).mean()))
+#&gt; LR: 0.8409673659673661
+print(&#39;KNN: &#39; + str(cross_val_score(pipeline_knn, X_train, y_train, cv=5, scoring=&#39;accuracy&#39;).mean()))                            
+#&gt; KNN: 0.8479700854700856</code></pre>
+<p>Obviously we haven’t done anything yet in terms of parameters but this is already quite a good score. Let’s try to do some parameter tuning.</p>
+</div>
+<div id="gridsearchcv-parameters" class="section level1">
+<h1>GridSearchCV parameters</h1>
+<p>We’re only using two models so the parameter tuning shouldn’t be difficult. For the <code>LogisticRegression</code> model, I want to try different values for:</p>
+<ul>
+<li><code>penalty</code> - <code>l2</code> is the default, changes the norm of the penalty</li>
+<li><code>C</code> - inverse of regularization strength</li>
+<li><code>solver</code> - algorithm to use (the one used above is <code>lbfgs</code>). The docs say <code>liblinear</code> is good for small datasets so I want to try that</li>
+</ul>
+<p>For KNN I’ll only try different values for <code>n_neighbors</code>.</p>
+<pre class="python"><code>grid_params_lr = [{&#39;clf__penalty&#39;: [&#39;l1&#39;,&#39;l2&#39;],
+                  &#39;clf__C&#39;: [1.0, 0.5, 0.1],
+                  &#39;clf__solver&#39;: [&#39;liblinear&#39;],
+                  &#39;clf__random_state&#39;: [13]}]
+                  
+grid_params_knn = [{&#39;clf__n_neighbors&#39;: np.arange(1, 31)}]                   
+                  
+gs_lr = GridSearchCV(estimator = pipeline_lr,
+                    param_grid = grid_params_lr,
+                    scoring=&#39;accuracy&#39;,
+                    cv = 10)
+                    
+gs_knn = GridSearchCV(estimator = pipeline_knn,
+                    param_grid = grid_params_knn,
+                    scoring=&#39;accuracy&#39;,
+                    cv = 10)                    </code></pre>
+<pre class="python"><code>grids = [gs_lr, gs_knn]
+grid_dict = {0: &#39;Logistic Regression&#39;, 1: &#39;KNN&#39;}
+
+
+for idx, gridSearch in enumerate(grids):
+  print(&#39;Estimator: %s&#39; % grid_dict[idx])
+  gridSearch.fit(X_train, y_train)
+  print(&#39;Best params: %s&#39; % gridSearch.best_params_)
+  print(&#39;Best training accuracy: %s&#39; % gridSearch.best_score_)
+  
+  y_preds = gridSearch.predict(X_test)
+  print(&#39;Test set accuracy: %s&#39; % accuracy_score(y_test, y_preds))
+#&gt; Estimator: Logistic Regression
+#&gt; GridSearchCV(cv=10,
+#&gt;              estimator=Pipeline(steps=[(&#39;scl&#39;, StandardScaler()),
+#&gt;                                        (&#39;clf&#39;,
+#&gt;                                         LogisticRegression(random_state=12))]),
+#&gt;              param_grid=[{&#39;clf__C&#39;: [1.0, 0.5, 0.1],
+#&gt;                           &#39;clf__penalty&#39;: [&#39;l1&#39;, &#39;l2&#39;],
+#&gt;                           &#39;clf__random_state&#39;: [13],
+#&gt;                           &#39;clf__solver&#39;: [&#39;liblinear&#39;]}],
+#&gt;              scoring=&#39;accuracy&#39;)
+#&gt; Best params: {&#39;clf__C&#39;: 1.0, &#39;clf__penalty&#39;: &#39;l1&#39;, &#39;clf__random_state&#39;: 13, &#39;clf__solver&#39;: &#39;liblinear&#39;}
+#&gt; Best training accuracy: 0.8464593114241001
+#&gt; Test set accuracy: 0.8441558441558441
+#&gt; Estimator: KNN
+#&gt; GridSearchCV(cv=10,
+#&gt;              estimator=Pipeline(steps=[(&#39;scl&#39;, StandardScaler()),
+#&gt;                                        (&#39;clf&#39;, KNeighborsClassifier())]),
+#&gt;              param_grid=[{&#39;clf__n_neighbors&#39;: array([ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17,
+#&gt;        18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30])}],
+#&gt;              scoring=&#39;accuracy&#39;)
+#&gt; Best params: {&#39;clf__n_neighbors&#39;: 1}
+#&gt; Best training accuracy: 0.9763693270735525
+#&gt; Test set accuracy: 1.0</code></pre>
+<p>Obviously there is some overfitting happening here as there is no way our model should be getting 100% accuracy. For the sake of learning, I want to see what’s going on with the KNN model:</p>
+</div>
+<div id="troubleshoot" class="section level1">
+<h1>Troubleshoot</h1>
+<pre class="python"><code>param_grid = {&#39;n_neighbors&#39;: np.arange(5,30)}
+knn = KNeighborsClassifier()
+knn_cv = GridSearchCV(knn, param_grid=param_grid, cv=5)
+knn_cv.fit(X_train, y_train)
+#&gt; GridSearchCV(cv=5, estimator=KNeighborsClassifier(),
+#&gt;              param_grid={&#39;n_neighbors&#39;: array([ 5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+#&gt;        22, 23, 24, 25, 26, 27, 28, 29])})
+print(&#39;Best Score: %s&#39; % knn_cv.best_score_)
+#&gt; Best Score: 0.7378302253302252
+print(&#39;Best Parameters: %s&#39; % knn_cv.best_params_)
+#&gt; Best Parameters: {&#39;n_neighbors&#39;: 8}</code></pre>
+<pre><code>#&gt; KNeighborsClassifier(n_neighbors=1)
+#&gt; KNeighborsClassifier(n_neighbors=2)
+#&gt; KNeighborsClassifier(n_neighbors=3)
+#&gt; KNeighborsClassifier(n_neighbors=4)
+#&gt; KNeighborsClassifier()
+#&gt; KNeighborsClassifier(n_neighbors=6)
+#&gt; KNeighborsClassifier(n_neighbors=7)
+#&gt; KNeighborsClassifier(n_neighbors=8)
+#&gt; KNeighborsClassifier(n_neighbors=9)
+#&gt; KNeighborsClassifier(n_neighbors=10)
+#&gt; KNeighborsClassifier(n_neighbors=11)
+#&gt; KNeighborsClassifier(n_neighbors=12)
+#&gt; KNeighborsClassifier(n_neighbors=13)
+#&gt; KNeighborsClassifier(n_neighbors=14)
+#&gt; KNeighborsClassifier(n_neighbors=15)
+#&gt; KNeighborsClassifier(n_neighbors=16)
+#&gt; KNeighborsClassifier(n_neighbors=17)
+#&gt; KNeighborsClassifier(n_neighbors=18)
+#&gt; KNeighborsClassifier(n_neighbors=19)
+#&gt; KNeighborsClassifier(n_neighbors=20)
+#&gt; KNeighborsClassifier(n_neighbors=21)
+#&gt; KNeighborsClassifier(n_neighbors=22)
+#&gt; KNeighborsClassifier(n_neighbors=23)
+#&gt; KNeighborsClassifier(n_neighbors=24)
+#&gt; KNeighborsClassifier(n_neighbors=25)
+#&gt; KNeighborsClassifier(n_neighbors=26)
+#&gt; KNeighborsClassifier(n_neighbors=27)
+#&gt; KNeighborsClassifier(n_neighbors=28)
+#&gt; KNeighborsClassifier(n_neighbors=29)</code></pre>
+<pre class="r"><code>py$knn_df %&gt;%
+  pivot_longer(cols = c(&quot;test_acc&quot;, &quot;train_acc&quot;), names_to = &quot;dataset&quot;) %&gt;%
+  ggplot(aes(x = K, y = value, col = dataset)) +
+  geom_line() +
+  geom_point() +
+  ylim(c(0, 1))</code></pre>
+<p><img src="/post/2023-06-11-heartattacks-scikitlearn-classification_files/figure-html/unnamed-chunk-13-1.png" width="672" /></p>
+</div>
+<div id="picking-a-model-and-evaluating" class="section level1">
+<h1>Picking a model and evaluating</h1>
+<p>It looks like, when we disregard the fact that lower k neighbors lead to overfitting here, the optimal k number is 12 for the test set. I just want to compare the accuracy and precision of this model compared to our best logreg model and then use a confusion matrix to see how good our best model actually is</p>
+<pre><code>#&gt; LR accuracy: 0.839539627039627
+#&gt; KNN accuracy: 0.8521367521367521</code></pre>
+<pre><code>#&gt; LR recall: 0.8984144144144144
+#&gt; KNN recall: 0.8342702702702702</code></pre>
+<p>Because we want to make sure that those who are likely to have a heart attack are correctly identified, we’ll go with the Logistic Regression model which has a higher recall rate</p>
+<div id="evaluating" class="section level2">
+<h2>Evaluating</h2>
+<pre class="python"><code>pipeline_lr.fit(X_train, y_train)
+#&gt; Pipeline(steps=[(&#39;scl&#39;, StandardScaler()),
+#&gt;                 (&#39;clf&#39;,
+#&gt;                  LogisticRegression(penalty=&#39;l1&#39;, random_state=12,
+#&gt;                                     solver=&#39;liblinear&#39;))])
+y_pred_class = pipeline_lr.predict(X_test)</code></pre>
+<pre class="python"><code>print(&#39;Accuracy score of our model: %s&#39; % accuracy_score(y_test, y_pred_class))
+#&gt; Accuracy score of our model: 0.8441558441558441
+print(&#39;Null accuracy score: %s&#39; % max(y_test.mean(), 1- y_test.mean()))
+#&gt; Null accuracy score: 0.5064935064935066</code></pre>
+<p>Obviously the accuracy score is still not great when you consider the subject. To get a clearer idea of where it’s going wrong, I’ll use a confusion matrix</p>
+<pre class="python"><code>cnf_matrix = confusion_matrix(y_test, y_pred_class)
+sns.heatmap(pd.DataFrame(cnf_matrix), annot=True, fmt=&#39;g&#39;)
+#&gt; &lt;AxesSubplot:&gt;
+plt.ylabel(&#39;Actuals&#39;)
+#&gt; Text(116.44444444444443, 0.5, &#39;Actuals&#39;)
+plt.xlabel(&#39;Predicted&#39;)
+#&gt; Text(0.5, 51.44444444444443, &#39;Predicted&#39;)
+plt.show()</code></pre>
+<p><img src="/post/2023-06-11-heartattacks-scikitlearn-classification_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>Can see that just slightly it’s better at predicting positives rather than negatives. Not entirely sure what we could alter to make this even better, but for now I am happy with this. Lastly I want to use a classification report and an ROC curve, just to round it off.</p>
+<pre class="python"><code>print(classification_report(y_test, y_pred_class))
+#&gt;               precision    recall  f1-score   support
+#&gt; 
+#&gt;          0.0       0.92      0.76      0.83       156
+#&gt;          1.0       0.79      0.93      0.85       152
+#&gt; 
+#&gt;     accuracy                           0.84       308
+#&gt;    macro avg       0.85      0.85      0.84       308
+#&gt; weighted avg       0.85      0.84      0.84       308</code></pre>
+<p>This doesn’t tell us anything the confusion matrix didn’t already tell us really. We can see it has a high recall rate which is good for this dataset.</p>
+<pre class="python"><code>y_pred_proba = pipeline_lr.predict_proba(X_test)[:,1]
+fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+
+plt.plot([0,1], [0,1], &#39;k--&#39;)
+#&gt; [&lt;matplotlib.lines.Line2D object at 0x000000002B0F2DF0&gt;]
+plt.plot(fpr, tpr, label=&#39;knn&#39;)
+#&gt; [&lt;matplotlib.lines.Line2D object at 0x000000002B112280&gt;]
+plt.xlabel(&#39;fpr&#39;)
+#&gt; Text(0.5, 0, &#39;fpr&#39;)
+plt.ylabel(&#39;tpr&#39;)
+#&gt; Text(0, 0.5, &#39;tpr&#39;)
+plt.title(&#39;KNNeighbors = 12, ROC Curve&#39;)
+#&gt; Text(0.5, 1.0, &#39;KNNeighbors = 12, ROC Curve&#39;)
+plt.show()</code></pre>
+<p><img src="/post/2023-06-11-heartattacks-scikitlearn-classification_files/figure-html/unnamed-chunk-6-3.png" width="672" /></p>
+<pre class="python"><code>roc_auc_score(y_test, y_pred_proba)
+#&gt; 0.9123228744939271</code></pre>
+<p>And that’s it! I like the <code>Pipeline</code> function because it reminds me more of R syntax, where you’re constantly chaining things and everything is very readable. In this example I didn’t get to put it to much use due to the data already being very clean. I also verged slightly sideways due to the overfitting example but I’m looking forward to using the Pipe more in the future.</p>
+</div>
 </div>

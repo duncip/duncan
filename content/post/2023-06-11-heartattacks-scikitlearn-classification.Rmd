@@ -1,7 +1,7 @@
 ---
 title: Using scikit's pipeline for a Heart Attack classification model
 description: Using a mix of R and Python for EDA and modelling
-draft: true
+draft: false
 author: Duncan
 date: '2023-06-11'
 slug: heart-attack-classification-pipeline
@@ -14,13 +14,7 @@ editor_options:
 Testing a pipeline for variety of classification models
 <!--more-->
 
-1. Check data for nulls / types
-2. Check imbalance of target variable
-3. Check correlation between variables
-4. Split dataset into train/test
-5. Try model evaluation with no changes
-6. 
-. Build pipeline (try StandardScaler)
+I've recently been going through some [dataschool.io](https://www.dataschool.io/) scikit-learn videos and one of the tips that stood out to me was about how you can use a [simple approach](https://www.youtube.com/watch?v=gd-TZut-oto) for many different machine learning problems. I liked the usage of the `Pipeline` function in particular because it reminded me of R functionality and so wanted to give it a try. I found one the most popular classification datasets on Kaggle, the [heart attack dataset](https://www.kaggle.com/datasets/johnsmith88/heart-disease-dataset?datasetId=216167&searchQuery=kn) and here we are. I don't get to use R very much any more so I still want to do some EDA / plotting in R and then do the modelling using scikit-learn. Let's have a look at the dataset:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
@@ -86,6 +80,8 @@ We can see that `age` is fine but `trestbps`, `chol`, and `thalach` all have out
 corrplot::corrplot(cor(heart_df, method="spearman"))
 ```
 
+I also want to double-check if there's a class imbalance in case we need to do some under/over-sampling
+
 ```{r echo=FALSE}
 heart_df %>%
   select(target) %>%
@@ -106,16 +102,17 @@ All good here :)
 
 # Modelling
 
-Preferably we would've tried things like one hot encoding, filling null values etc. all in a single pipeline but because the dataset we're working with is already great, we don't need to do that. So instead, we'll just do the scaling in the pipeline so we can easily switch between 3 models. For this, I'll use Python
+Preferably we would've tried things like one hot encoding, filling null values etc. all in a single pipeline but because the dataset we're working with is already great, we don't need to do that. So instead, we'll just do the scaling in the pipeline so we can easily switch between 2 models. For this, I'll use Python
 
 ```{python}
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.pipeline import make_pipeline
+import seaborn as sns
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import confusion_matrix, recall_score, precision_score, f1_score, accuracy_score
+from sklearn.metrics import confusion_matrix, recall_score, precision_score, f1_score, accuracy_score, classification_report, roc_curve, roc_auc_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 
@@ -132,8 +129,167 @@ y = heart_df_p['target']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=4)
 ```
 
+Now we can start our Pipeline. Again, even though there aren't many steps needed for this data I still think the pipeline allows for great readability
+
 ```{python}
-heart_df_p['target'].shape
+pipeline_lr = Pipeline([('scl', StandardScaler()),
+                            ('clf', LogisticRegression(random_state=12))])
+                            
+pipeline_knn = Pipeline([('scl', StandardScaler()),
+                            ('clf', KNeighborsClassifier())])
+                            
+print('LR: ' + str(cross_val_score(pipeline_lr, X_train, y_train, cv=5, scoring='accuracy').mean()))
+print('KNN: ' + str(cross_val_score(pipeline_knn, X_train, y_train, cv=5, scoring='accuracy').mean()))                            
 ```
 
+Obviously we haven't done anything yet in terms of parameters but this is already quite a good score. Let's try to do some parameter tuning.
 
+# GridSearchCV parameters
+
+We're only using two models so the parameter tuning shouldn't be difficult. For the `LogisticRegression` model, I want to try different values for:
+
+* `penalty` - `l2` is the default, changes the norm of the penalty
+* `C` - inverse of regularization strength
+* `solver` - algorithm to use (the one used above is `lbfgs`). The docs say `liblinear` is good for small datasets so I want to try that
+
+For KNN I'll only try different values for `n_neighbors`.
+
+```{python}
+grid_params_lr = [{'clf__penalty': ['l1','l2'],
+                  'clf__C': [1.0, 0.5, 0.1],
+                  'clf__solver': ['liblinear'],
+                  'clf__random_state': [13]}]
+                  
+grid_params_knn = [{'clf__n_neighbors': np.arange(1, 31)}]                   
+                  
+gs_lr = GridSearchCV(estimator = pipeline_lr,
+                    param_grid = grid_params_lr,
+                    scoring='accuracy',
+                    cv = 10)
+                    
+gs_knn = GridSearchCV(estimator = pipeline_knn,
+                    param_grid = grid_params_knn,
+                    scoring='accuracy',
+                    cv = 10)                    
+```
+
+```{python}
+grids = [gs_lr, gs_knn]
+grid_dict = {0: 'Logistic Regression', 1: 'KNN'}
+
+
+for idx, gridSearch in enumerate(grids):
+  print('Estimator: %s' % grid_dict[idx])
+  gridSearch.fit(X_train, y_train)
+  print('Best params: %s' % gridSearch.best_params_)
+  print('Best training accuracy: %s' % gridSearch.best_score_)
+  
+  y_preds = gridSearch.predict(X_test)
+  print('Test set accuracy: %s' % accuracy_score(y_test, y_preds))
+```
+
+Obviously there is some overfitting happening here as there is no way our model should be getting 100% accuracy. For the sake of learning, I want to see what's going on with the KNN model:
+
+# Troubleshoot
+
+```{python}
+param_grid = {'n_neighbors': np.arange(5,30)}
+knn = KNeighborsClassifier()
+knn_cv = GridSearchCV(knn, param_grid=param_grid, cv=5)
+knn_cv.fit(X_train, y_train)
+
+print('Best Score: %s' % knn_cv.best_score_)
+print('Best Parameters: %s' % knn_cv.best_params_)
+```
+
+```{python echo=FALSE, message=FALSE}
+knn_r_acc = []
+for i in np.arange(1, 30):
+  knn = KNeighborsClassifier(n_neighbors=i)
+  knn.fit(X_train, y_train)
+  test_score = knn.score(X_test, y_test)
+  train_score = knn.score(X_train, y_train)
+  
+  knn_r_acc.append((i, test_score, train_score))
+  
+knn_df = pd.DataFrame(knn_r_acc, columns=['K', 'test_acc', 'train_acc'])
+```
+
+```{r}
+py$knn_df %>%
+  pivot_longer(cols = c("test_acc", "train_acc"), names_to = "dataset") %>%
+  ggplot(aes(x = K, y = value, col = dataset)) +
+  geom_line() +
+  geom_point() +
+  ylim(c(0, 1))
+```
+
+# Picking a model and evaluating
+
+It looks like, when we disregard the fact that lower k neighbors lead to overfitting here, the optimal k number is 12 for the test set. I just want to compare the accuracy and precision of this model compared to our best logreg model and then use a confusion matrix to see how good our best model actually is
+
+```{python echo=FALSE}
+pipeline_lr = Pipeline([('scl', StandardScaler()),
+                            ('clf', LogisticRegression(random_state=12, C = 1.0, penalty = 'l1', solver = 'liblinear'))])
+                            
+pipeline_knn = Pipeline([('scl', StandardScaler()),
+                            ('clf', KNeighborsClassifier(n_neighbors=12))])
+                            
+print('LR accuracy: ' + str(cross_val_score(pipeline_lr, X_train, y_train, cv=5, scoring='accuracy').mean()))
+print('KNN accuracy: ' + str(cross_val_score(pipeline_knn, X_train, y_train, cv=5, scoring='accuracy').mean()))        
+```
+
+```{python echo=FALSE}
+print('LR recall: ' + str(cross_val_score(pipeline_lr, X_train, y_train, cv=5, scoring='recall').mean()))
+print('KNN recall: ' + str(cross_val_score(pipeline_knn, X_train, y_train, cv=5, scoring='recall').mean()))        
+```
+
+Because we want to make sure that those who are likely to have a heart attack are correctly identified, we'll go with the Logistic Regression model which has a higher recall rate
+
+## Evaluating
+
+```{python}
+pipeline_lr.fit(X_train, y_train)
+y_pred_class = pipeline_lr.predict(X_test)
+```
+
+```{python}
+print('Accuracy score of our model: %s' % accuracy_score(y_test, y_pred_class))
+print('Null accuracy score: %s' % max(y_test.mean(), 1- y_test.mean()))
+```
+
+Obviously the accuracy score is still not great when you consider the subject. To get a clearer idea of where it's going wrong, I'll use a confusion matrix
+
+```{python}
+cnf_matrix = confusion_matrix(y_test, y_pred_class)
+sns.heatmap(pd.DataFrame(cnf_matrix), annot=True, fmt='g')
+plt.ylabel('Actuals')
+plt.xlabel('Predicted')
+plt.show()
+```
+
+Can see that just slightly it's better at predicting positives rather than negatives. Not entirely sure what we could alter to make this even better, but for now I am happy with this. Lastly I want to use a classification report and an ROC curve, just to round it off.
+
+```{python}
+print(classification_report(y_test, y_pred_class))
+```
+
+This doesn't tell us anything the confusion matrix didn't already tell us really. We can see it has a high recall rate which is good for this dataset.
+
+```{python}
+y_pred_proba = pipeline_lr.predict_proba(X_test)[:,1]
+fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+
+plt.plot([0,1], [0,1], 'k--')
+plt.plot(fpr, tpr, label='knn')
+plt.xlabel('fpr')
+plt.ylabel('tpr')
+plt.title('KNNeighbors = 12, ROC Curve')
+plt.show()
+```
+
+```{python}
+roc_auc_score(y_test, y_pred_proba)
+```
+
+And that's it! I like the `Pipeline` function because it reminds me more of R syntax, where you're constantly chaining things and everything is very readable. In this example I didn't get to put it to much use due to the data already being very clean. I also verged slightly sideways due to the overfitting example but I'm looking forward to using the Pipe more in the future.
