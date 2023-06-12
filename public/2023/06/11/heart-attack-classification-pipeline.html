@@ -1,21 +1,115 @@
----
-title: Using scikit's pipeline for a Heart Attack classification model
-description: Using a mix of R and Python for EDA and modelling
-draft: false
-author: Duncan
-date: '2023-06-11'
-slug: heart-attack-classification-pipeline
-categories: [modeling, classification, python, r]
-tags: [modeling, python, r]
-editor_options: 
-  chunk_output_type: console
----
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
 
-<script src="/rmarkdown-libs/header-attrs/header-attrs.js"></script>
+  <title>Using scikit&#39;s pipeline for a Heart Attack classification model</title>
+  <meta name="author" content="Duncan Pastoors">
+  <meta name="description" content="Using a mix of R and Python for EDA and modelling">
 
 
-<p>Testing a pipeline for variety of classification models
-<!--more--></p>
+<script>
+  (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-KK6SXDK');
+</script>
+  
+
+
+
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="alternate" type="application/rss+xml" href="https://duncanpastoors.com/index.xml" title="Duncan Pastoors">
+
+
+<link rel="stylesheet" href="https://duncanpastoors.com/fontawesome/css/fontawesome.css" />
+<link rel="stylesheet" href="https://duncanpastoors.com/fontawesome/css/brands.css" />
+<link rel="stylesheet" href="https://duncanpastoors.com/fontawesome/css/solid.css" />
+
+<link rel="stylesheet" href="https://duncanpastoors.com/css/dp-styles.css" />
+<link rel="stylesheet" href="https://duncanpastoors.com/css/main.css" />
+<link rel="stylesheet" href="https://duncanpastoors.com/css/zenburn.css" id="theme-stylesheet">
+
+<script src="https://duncanpastoors.com/js/bundle.js"></script>
+<script src="https://duncanpastoors.com/js/instantpage.js" type="module" defer></script>
+<script src="https://duncanpastoors.com/js/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+<meta name="generator" content="Hugo 0.72.0" />
+  </head>
+  <body>
+    
+  
+
+
+<noscript>
+  <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KK6SXDK"
+height="0" width="0" style="display:none;visibility:hidden"></iframe>
+</noscript>
+
+
+
+  <header>
+    <nav class="navbar">
+  <div class="nav">
+    
+      <a href="https://duncanpastoors.com/" class="nav-logo">
+      <img src="https://duncanpastoors.com/images/dp_logo.png"
+           width="50"
+           height="50"
+           alt="Logo">
+      </a>
+    
+
+    <ul class="nav-links">
+      
+        
+          <li><a href="/tags" name="Tags"><i class="fas fa-tag fa-lg"></i></a></li>
+        
+      
+    </ul>
+  </div>
+</nav>
+
+    <div class="intro-header">
+      <div class="container">
+        <div class="post-heading">
+          
+            
+              <h1>Using scikit&#39;s pipeline for a Heart Attack classification model</h1>
+            
+          
+          
+            <span class="meta-post">
+  <i class="fa fa-calendar-alt"></i>&nbsp;Jun 11, 2023
+  
+    &nbsp;&nbsp;&nbsp;<i class="fa fa-folder-open"></i>&nbsp;
+    
+      <a href="https://duncanpastoors.com//categories/modeling/">modeling</a>&nbsp;
+    
+      <a href="https://duncanpastoors.com//categories/classification/">classification</a>&nbsp;
+    
+      <a href="https://duncanpastoors.com//categories/python/">python</a>&nbsp;
+    
+      <a href="https://duncanpastoors.com//categories/r/">r</a>&nbsp;
+    
+  
+</span>
+
+          
+        </div>
+      </div>
+    </div>
+  </header>
+
+
+    
+
+  <div class="container" role="main">
+    <article class="article" class="blog-post">
+      
+    </p>
 <p>I’ve recently been going through some <a href="https://www.dataschool.io/">dataschool.io</a> scikit-learn videos and one of the tips that stood out to me was about how you can use a <a href="https://www.youtube.com/watch?v=gd-TZut-oto">simple approach</a> for many different machine learning problems. I liked the usage of the <code>Pipeline</code> function in particular because it reminded me of R functionality and so wanted to give it a try. I found one the most popular classification datasets on Kaggle, the <a href="https://www.kaggle.com/datasets/johnsmith88/heart-disease-dataset?datasetId=216167&amp;searchQuery=kn">heart attack dataset</a> and here we are. I don’t get to use R very much any more so I still want to do some EDA / plotting in R and then do the modelling using scikit-learn. Let’s have a look at the dataset:</p>
 <pre><code>#&gt; # A tibble: 5 x 14
 #&gt;     age   sex    cp trestbps  chol   fbs restecg thalach exang oldpeak slope
@@ -308,3 +402,35 @@ plt.show()</code></pre>
 <p>And that’s it! I like the <code>Pipeline</code> function because it reminds me more of R syntax, where you’re constantly chaining things and everything is very readable. In this example I didn’t get to put it to much use due to the data already being very clean. I also verged slightly sideways due to the overfitting example but I’m looking forward to using the Pipe more in the future.</p>
 </div>
 </div>
+
+
+      
+        <div class="blog-tags">
+          
+            <a href="https://duncanpastoors.com//tags/modeling/">modeling</a>&nbsp;
+          
+            <a href="https://duncanpastoors.com//tags/python/">python</a>&nbsp;
+          
+            <a href="https://duncanpastoors.com//tags/r/">r</a>&nbsp;
+          
+        </div>
+      
+    </article>
+    
+  </div>
+
+    <footer>
+  <div class="container">
+      <p class="credits theme-by">
+        Powered By <a href="https://gohugo.io">Hugo</a>&nbsp;Theme <a href="https://github.com/matsuyoshi30/harbor">Harbor</a>
+      </p>
+    <div class="container text-center social-icons">
+      <a href="https://github.com/duncip"><i class="fab fa-github-square"></i></a>
+      <a href="https://twitter.com/duncip"><i class="fas fa-hashtag"></i></a>
+      <a href="mailto:duncanpastoors@gmail.com"><i class="fas fa-reply"></i></a>
+    </div>
+  </div>
+</footer>
+
+  </body>
+</html>

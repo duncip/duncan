@@ -1,17 +1,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 	<channel>
-		<title>modeling on Duncan Pastoors</title>
-		<link>https://duncanpastoors.com/categories/modeling.html</link>
-		<description>Recent content in modeling on Duncan Pastoors</description>
+		<title>classification on Duncan Pastoors</title>
+		<link>https://duncanpastoors.com/categories/classification.html</link>
+		<description>Recent content in classification on Duncan Pastoors</description>
 		<generator>Hugo -- gohugo.io</generator>
 		
   		<language>en</language>
 		
-		<managingEditor>Page(/categories/modeling) (duncan pastoors)</managingEditor>
+		<managingEditor>Page(/categories/classification) (duncan pastoors)</managingEditor>
     	
   		<lastBuildDate>Sun, 11 Jun 2023 00:00:00 +0000</lastBuildDate>
 		
-		<atom:link href="https://duncanpastoors.com/categories/modeling.html" rel="self" type="application/rss+xml" />
+		<atom:link href="https://duncanpastoors.com/categories/classification.html" rel="self" type="application/rss+xml" />
 		
 		<item>
 			<title>Using scikit&#39;s pipeline for a Heart Attack classification model</title>

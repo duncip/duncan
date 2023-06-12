@@ -110,6 +110,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe>
     <article class="article" class="blog-post">
       
     </p>
+<p><strong>edit</strong>: updated in 2023 as the wikipedia page updated the table</p>
 <p>The <code>gt</code> package in particular, which was released by the amazing RStudio team, seems to have been getting lots of attention. There have been several TidyTuesday entries where people have used tables with the most notable (to me, from memory) entries by <a href="https://themockup.blog/">Thomas Mock</a> who has written a few tutorials. Based on those tutorials I wanted to have a look myself.</p>
 <p>Tables are a necessity where I work to represent big piles of web data that can’t be visualised easily and one of the issues we run into is that everyone uses different formats. Even the same person, based on what week they’re doing something, will produce something completely different. <code>gt</code> seems to address this with a theme function so you can have cool consistent tables like the BBC or FiveThirtyEight, so I’ll be trying that.</p>
 <p>For the data I wanted to do something simple: look at <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-09-01/readme.md">global crop yields</a> and focus on European countries to see which is the top exporter for each crop throughout the decades. The below has several chunks stripped out, full code can be found on <a href="https://github.com/duncip/blog-posts/blob/master/2020-11-08-crops-europe-and-gt.Rmd">GitHub</a>!</p>
@@ -119,7 +120,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe>
 <div id="scraping-and-readying-data" class="section level3">
 <h3>Scraping and readying data</h3>
 <p>With 249 countries there’s a lot to process. Instead, I just want to focus on Europe. Because I don’t want to put together a list manually, I’ll use the <a href="https://en.wikipedia.org/wiki/List_of_European_countries_by_population">Wiki page</a> to get a quick list and also to extract the flag icons for the table!</p>
-<pre class="r"><code>url &lt;- &quot;https://en.wikipedia.org/wiki/List_of_European_countries_by_population&quot;
+<pre class="r"><code>#url &lt;- &quot;https://en.wikipedia.org/wiki/List_of_European_countries_by_population&quot;
+url &lt;- &quot;https://en.wikipedia.org/w/index.php?title=List_of_European_countries_by_population&amp;oldid=915927381&quot;
 wiki_scrape &lt;- 
   url %&gt;%
   read_html() %&gt;%
@@ -129,18 +131,20 @@ wiki_table &lt;-
   wiki_scrape %&gt;%
   html_table(fill = TRUE)
 
-names(wiki_table[[1]]) &lt;- c(&quot;rank&quot;, &quot;country&quot;, &quot;population&quot;, &quot;estimate&quot;, &quot;date&quot;, &quot;region&quot;, &quot;source&quot;)
+names(wiki_table[[1]]) &lt;- c(&quot;rank&quot; , &quot;country&quot;, &quot;population&quot;, &quot;date&quot;, &quot;region&quot;, &quot;source&quot;)
 wiki_table[[1]]$country &lt;- gsub(&#39;\\[.*?\\]&#39;, &#39;&#39;, wiki_table[[1]]$country)
-eu_list &lt;- as_tibble(wiki_table[[1]])[-1,]
+eu_list &lt;- 
+  as_tibble(wiki_table[[1]])[-1,] %&gt;%
+  filter(region == &quot;EU&quot;)
 
 head(eu_list, 4)</code></pre>
-<pre><code>## # A tibble: 4 x 7
-##   rank  country population  estimate    date      region source                 
-##   &lt;chr&gt; &lt;chr&gt;   &lt;chr&gt;       &lt;chr&gt;       &lt;chr&gt;     &lt;chr&gt;  &lt;chr&gt;                  
-## 1 1     Russia  146,052,135 146,877,088 1 Jan 20~ &quot;EAEU&quot; National Estimate[6]   
-## 2 2     Turkey  84,867,581  83,154,997  4 Feb 20~ &quot;&quot;     National estimate[7]   
-## 3 3     Germany 84,030,234  82,887,000  30 Jun 2~ &quot;EU&quot;   National estimate[8]   
-## 4 4     France  65,311,156  67,076,000  1 Mar 20~ &quot;EU&quot;   Monthly national estim~</code></pre>
+<pre><code>## # A tibble: 4 x 6
+##    rank country        population date             region source                
+##   &lt;int&gt; &lt;chr&gt;          &lt;chr&gt;      &lt;chr&gt;            &lt;chr&gt;  &lt;chr&gt;                 
+## 1     2 Germany        82,887,000 June 30, 2018    EU     Official estimate     
+## 2     4 France         67,372,000 November 1, 2018 EU     Monthly official esti~
+## 3     5 United Kingdom 66,040,229 June 30, 2017    EU     Official annual estim~
+## 4     6 Italy          60,390,560 September 30, 2~ EU     Monthly official esti~</code></pre>
 <p>Now that we have the list, I’ll extract the flags separately. I also need to fix the URL as <code>gt</code> requires you to put the full url rather than the relative one:</p>
 <pre class="r"><code>flags &lt;- 
   wiki_scrape %&gt;%
@@ -162,8 +166,8 @@ head(flags, 4)</code></pre>
 ##   flag_url                                                               country
 ##   &lt;chr&gt;                                                                  &lt;chr&gt;  
 ## 1 https://upload.wikimedia.org/wikipedia/en/thumb/f/f3/Flag_of_Russia.s~ Russia 
-## 2 https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Flag_of_Tur~ Turkey 
-## 3 https://upload.wikimedia.org/wikipedia/en/thumb/b/ba/Flag_of_Germany.~ Germany
+## 2 https://upload.wikimedia.org/wikipedia/en/thumb/b/ba/Flag_of_Germany.~ Germany
+## 3 https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Flag_of_Tur~ Turkey 
 ## 4 https://upload.wikimedia.org/wikipedia/en/thumb/c/c3/Flag_of_France.s~ France</code></pre>
 <p>With the list of European countries and flag URLs sorted, I had a quick look through the data and found that no countries in Europe produce <strong>cocoa beans</strong> or <strong>cassava</strong> so I’ve filtered both these out. Now we can have a quick look at recurring countries.</p>
 <p><img src="/post/2020-11-08-crops-europe-and-gt_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
@@ -181,12 +185,13 @@ head(flags, 4)</code></pre>
   ungroup() %&gt;%
   left_join(flags, by = &quot;country&quot;) %&gt;%
   select(-country)</code></pre>
-<p>To show you what the table would look like with any alterations at all, here’s the first few lines..</p>
+<p>To show you what the table would look like with no alterations at all, here’s the first few lines..</p>
+<div id="uvhjrjziuw" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
 
-#yeewiwzfab .gt_table {
+#uvhjrjziuw .gt_table {
   display: table;
   border-collapse: collapse;
   margin-left: auto;
@@ -211,7 +216,7 @@ head(flags, 4)</code></pre>
   border-left-color: #D3D3D3;
 }
 
-#yeewiwzfab .gt_heading {
+#uvhjrjziuw .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -223,7 +228,7 @@ head(flags, 4)</code></pre>
   border-right-color: #D3D3D3;
 }
 
-#yeewiwzfab .gt_title {
+#uvhjrjziuw .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -233,23 +238,23 @@ head(flags, 4)</code></pre>
   border-bottom-width: 0;
 }
 
-#yeewiwzfab .gt_subtitle {
+#uvhjrjziuw .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
   padding-top: 0;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   border-top-color: #FFFFFF;
   border-top-width: 0;
 }
 
-#yeewiwzfab .gt_bottom_border {
+#uvhjrjziuw .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#yeewiwzfab .gt_col_headings {
+#uvhjrjziuw .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -264,7 +269,7 @@ head(flags, 4)</code></pre>
   border-right-color: #D3D3D3;
 }
 
-#yeewiwzfab .gt_col_heading {
+#uvhjrjziuw .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -284,7 +289,7 @@ head(flags, 4)</code></pre>
   overflow-x: hidden;
 }
 
-#yeewiwzfab .gt_column_spanner_outer {
+#uvhjrjziuw .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -296,27 +301,27 @@ head(flags, 4)</code></pre>
   padding-right: 4px;
 }
 
-#yeewiwzfab .gt_column_spanner_outer:first-child {
+#uvhjrjziuw .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#yeewiwzfab .gt_column_spanner_outer:last-child {
+#uvhjrjziuw .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#yeewiwzfab .gt_column_spanner {
+#uvhjrjziuw .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
   vertical-align: bottom;
   padding-top: 5px;
-  padding-bottom: 6px;
+  padding-bottom: 5px;
   overflow-x: hidden;
   display: inline-block;
   width: 100%;
 }
 
-#yeewiwzfab .gt_group_heading {
+#uvhjrjziuw .gt_group_heading {
   padding: 8px;
   color: #333333;
   background-color: #FFFFFF;
@@ -338,7 +343,7 @@ head(flags, 4)</code></pre>
   vertical-align: middle;
 }
 
-#yeewiwzfab .gt_empty_group_heading {
+#uvhjrjziuw .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -353,15 +358,15 @@ head(flags, 4)</code></pre>
   vertical-align: middle;
 }
 
-#yeewiwzfab .gt_from_md > :first-child {
+#uvhjrjziuw .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#yeewiwzfab .gt_from_md > :last-child {
+#uvhjrjziuw .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#yeewiwzfab .gt_row {
+#uvhjrjziuw .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -380,7 +385,7 @@ head(flags, 4)</code></pre>
   overflow-x: hidden;
 }
 
-#yeewiwzfab .gt_stub {
+#uvhjrjziuw .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -392,7 +397,7 @@ head(flags, 4)</code></pre>
   padding-left: 12px;
 }
 
-#yeewiwzfab .gt_summary_row {
+#uvhjrjziuw .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -402,7 +407,7 @@ head(flags, 4)</code></pre>
   padding-right: 5px;
 }
 
-#yeewiwzfab .gt_first_summary_row {
+#uvhjrjziuw .gt_first_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -412,7 +417,7 @@ head(flags, 4)</code></pre>
   border-top-color: #D3D3D3;
 }
 
-#yeewiwzfab .gt_grand_summary_row {
+#uvhjrjziuw .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -422,7 +427,7 @@ head(flags, 4)</code></pre>
   padding-right: 5px;
 }
 
-#yeewiwzfab .gt_first_grand_summary_row {
+#uvhjrjziuw .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -432,11 +437,11 @@ head(flags, 4)</code></pre>
   border-top-color: #D3D3D3;
 }
 
-#yeewiwzfab .gt_striped {
+#uvhjrjziuw .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#yeewiwzfab .gt_table_body {
+#uvhjrjziuw .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -445,7 +450,7 @@ head(flags, 4)</code></pre>
   border-bottom-color: #D3D3D3;
 }
 
-#yeewiwzfab .gt_footnotes {
+#uvhjrjziuw .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -459,13 +464,13 @@ head(flags, 4)</code></pre>
   border-right-color: #D3D3D3;
 }
 
-#yeewiwzfab .gt_footnote {
+#uvhjrjziuw .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding: 4px;
 }
 
-#yeewiwzfab .gt_sourcenotes {
+#uvhjrjziuw .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -479,46 +484,47 @@ head(flags, 4)</code></pre>
   border-right-color: #D3D3D3;
 }
 
-#yeewiwzfab .gt_sourcenote {
+#uvhjrjziuw .gt_sourcenote {
   font-size: 90%;
   padding: 4px;
 }
 
-#yeewiwzfab .gt_left {
+#uvhjrjziuw .gt_left {
   text-align: left;
 }
 
-#yeewiwzfab .gt_center {
+#uvhjrjziuw .gt_center {
   text-align: center;
 }
 
-#yeewiwzfab .gt_right {
+#uvhjrjziuw .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#yeewiwzfab .gt_font_normal {
+#uvhjrjziuw .gt_font_normal {
   font-weight: normal;
 }
 
-#yeewiwzfab .gt_font_bold {
+#uvhjrjziuw .gt_font_bold {
   font-weight: bold;
 }
 
-#yeewiwzfab .gt_font_italic {
+#uvhjrjziuw .gt_font_italic {
   font-style: italic;
 }
 
-#yeewiwzfab .gt_super {
+#uvhjrjziuw .gt_super {
   font-size: 65%;
 }
 
-#yeewiwzfab .gt_footnote_marks {
+#uvhjrjziuw .gt_footnote_marks {
   font-style: italic;
+  font-weight: normal;
   font-size: 65%;
 }
 </style>
-<div id="yeewiwzfab" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;"><table class="gt_table">
+<table class="gt_table">
   
   <thead class="gt_col_headings">
     <tr>
@@ -531,34 +537,29 @@ head(flags, 4)</code></pre>
     </tr>
   </thead>
   <tbody class="gt_table_body">
-    <tr>
-      <td class="gt_row gt_left">ESP</td>
-      <td class="gt_row gt_right">1960</td>
-      <td class="gt_row gt_left">bananas</td>
-      <td class="gt_row gt_right">36.213167</td>
-      <td class="gt_row gt_right">0.41607086</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/23px-Flag_of_Spain.svg.png</td>
-    </tr>
-    <tr>
-      <td class="gt_row gt_left">NLD</td>
-      <td class="gt_row gt_right">1960</td>
-      <td class="gt_row gt_left">barley</td>
-      <td class="gt_row gt_right">3.906722</td>
-      <td class="gt_row gt_right">0.07424106</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-    </tr>
-    <tr>
-      <td class="gt_row gt_left">NLD</td>
-      <td class="gt_row gt_right">1960</td>
-      <td class="gt_row gt_left">beans</td>
-      <td class="gt_row gt_right">2.272400</td>
-      <td class="gt_row gt_right">0.12436583</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-    </tr>
+    <tr><td class="gt_row gt_left">ESP</td>
+<td class="gt_row gt_right">1960</td>
+<td class="gt_row gt_left">bananas</td>
+<td class="gt_row gt_right">36.213167</td>
+<td class="gt_row gt_right">0.46359948</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/23px-Flag_of_Spain.svg.png</td></tr>
+    <tr><td class="gt_row gt_left">NLD</td>
+<td class="gt_row gt_right">1960</td>
+<td class="gt_row gt_left">barley</td>
+<td class="gt_row gt_right">3.906722</td>
+<td class="gt_row gt_right">0.08812164</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td></tr>
+    <tr><td class="gt_row gt_left">NLD</td>
+<td class="gt_row gt_right">1960</td>
+<td class="gt_row gt_left">beans</td>
+<td class="gt_row gt_right">2.272400</td>
+<td class="gt_row gt_right">0.13911849</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td></tr>
   </tbody>
   
   
-</table></div>
+</table>
+</div>
 <p> </p>
 <p>The way I defined the function is by altering the table one line at a time. I then decided what I could reuse for future tables and put it in a function. For example, I started with the above table and slowly added things like <code>opt_all_caps()</code> and got it to look how I wanted. Once that was done, I cut and pasted the reusable code into a function. My final function looks like this:</p>
 <pre class="r"><code>gt_theme_cropc &lt;- function(data,...) {
@@ -575,7 +576,7 @@ head(flags, 4)</code></pre>
         sides = &quot;bottom&quot;, color = &quot;transparent&quot;, weight = px(2)
       ),
       locations = cells_body(
-        columns = TRUE,
+        columns = everything(),
         rows = nrow(data$`_data`)
       )
     )  %&gt;% 
@@ -595,7 +596,7 @@ head(flags, 4)</code></pre>
       cell_text(weight = &quot;bold&quot;)
     ), 
     locations = cells_body(
-      columns = vars(crop)
+      columns = c(crop)
     )
   ) %&gt;%
     cols_label(
@@ -607,11 +608,11 @@ head(flags, 4)</code></pre>
   tab_options(
     column_labels.background.color = &quot;white&quot;,
     table.border.top.width = px(3),
-    table.border.top.color = &quot;transparent&quot;,
-    table.border.bottom.color = &quot;transparent&quot;,
+   # table.border.top.color = &quot;transparent&quot;,
+    #table.border.bottom.color = &quot;transparent&quot;,
     table.border.bottom.width = px(3),
     column_labels.border.top.width = px(3),
-    column_labels.border.top.color = &quot;transparent&quot;,
+   # column_labels.border.top.color = &quot;transparent&quot;,
     column_labels.border.bottom.width = px(3),
     column_labels.border.bottom.color = &quot;black&quot;,
     data_row.padding = px(3),
@@ -689,11 +690,12 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
           matches(&quot;flag.*2010.*NLD&quot;), matches(&quot;2010_NLD&quot;), matches(&quot;flag.*2010.*GBR&quot;), matches(&quot;2010_GBR&quot;))</code></pre>
 <div id="unaltered-table" class="section level4">
 <h4>Unaltered table</h4>
+<div id="jggfiulfjz" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
 
-#lsbtrjdhci .gt_table {
+#jggfiulfjz .gt_table {
   display: table;
   border-collapse: collapse;
   margin-left: auto;
@@ -718,7 +720,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   border-left-color: #D3D3D3;
 }
 
-#lsbtrjdhci .gt_heading {
+#jggfiulfjz .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -730,7 +732,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   border-right-color: #D3D3D3;
 }
 
-#lsbtrjdhci .gt_title {
+#jggfiulfjz .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -740,23 +742,23 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   border-bottom-width: 0;
 }
 
-#lsbtrjdhci .gt_subtitle {
+#jggfiulfjz .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
   padding-top: 0;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   border-top-color: #FFFFFF;
   border-top-width: 0;
 }
 
-#lsbtrjdhci .gt_bottom_border {
+#jggfiulfjz .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#lsbtrjdhci .gt_col_headings {
+#jggfiulfjz .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -771,7 +773,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   border-right-color: #D3D3D3;
 }
 
-#lsbtrjdhci .gt_col_heading {
+#jggfiulfjz .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -791,7 +793,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   overflow-x: hidden;
 }
 
-#lsbtrjdhci .gt_column_spanner_outer {
+#jggfiulfjz .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -803,27 +805,27 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   padding-right: 4px;
 }
 
-#lsbtrjdhci .gt_column_spanner_outer:first-child {
+#jggfiulfjz .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#lsbtrjdhci .gt_column_spanner_outer:last-child {
+#jggfiulfjz .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#lsbtrjdhci .gt_column_spanner {
+#jggfiulfjz .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
   vertical-align: bottom;
   padding-top: 5px;
-  padding-bottom: 6px;
+  padding-bottom: 5px;
   overflow-x: hidden;
   display: inline-block;
   width: 100%;
 }
 
-#lsbtrjdhci .gt_group_heading {
+#jggfiulfjz .gt_group_heading {
   padding: 8px;
   color: #333333;
   background-color: #FFFFFF;
@@ -845,7 +847,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   vertical-align: middle;
 }
 
-#lsbtrjdhci .gt_empty_group_heading {
+#jggfiulfjz .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -860,15 +862,15 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   vertical-align: middle;
 }
 
-#lsbtrjdhci .gt_from_md > :first-child {
+#jggfiulfjz .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#lsbtrjdhci .gt_from_md > :last-child {
+#jggfiulfjz .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#lsbtrjdhci .gt_row {
+#jggfiulfjz .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -887,7 +889,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   overflow-x: hidden;
 }
 
-#lsbtrjdhci .gt_stub {
+#jggfiulfjz .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -899,7 +901,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   padding-left: 12px;
 }
 
-#lsbtrjdhci .gt_summary_row {
+#jggfiulfjz .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -909,7 +911,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   padding-right: 5px;
 }
 
-#lsbtrjdhci .gt_first_summary_row {
+#jggfiulfjz .gt_first_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -919,7 +921,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   border-top-color: #D3D3D3;
 }
 
-#lsbtrjdhci .gt_grand_summary_row {
+#jggfiulfjz .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -929,7 +931,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   padding-right: 5px;
 }
 
-#lsbtrjdhci .gt_first_grand_summary_row {
+#jggfiulfjz .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -939,11 +941,11 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   border-top-color: #D3D3D3;
 }
 
-#lsbtrjdhci .gt_striped {
+#jggfiulfjz .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#lsbtrjdhci .gt_table_body {
+#jggfiulfjz .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -952,7 +954,7 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   border-bottom-color: #D3D3D3;
 }
 
-#lsbtrjdhci .gt_footnotes {
+#jggfiulfjz .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -966,13 +968,13 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   border-right-color: #D3D3D3;
 }
 
-#lsbtrjdhci .gt_footnote {
+#jggfiulfjz .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding: 4px;
 }
 
-#lsbtrjdhci .gt_sourcenotes {
+#jggfiulfjz .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -986,46 +988,47 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
   border-right-color: #D3D3D3;
 }
 
-#lsbtrjdhci .gt_sourcenote {
+#jggfiulfjz .gt_sourcenote {
   font-size: 90%;
   padding: 4px;
 }
 
-#lsbtrjdhci .gt_left {
+#jggfiulfjz .gt_left {
   text-align: left;
 }
 
-#lsbtrjdhci .gt_center {
+#jggfiulfjz .gt_center {
   text-align: center;
 }
 
-#lsbtrjdhci .gt_right {
+#jggfiulfjz .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#lsbtrjdhci .gt_font_normal {
+#jggfiulfjz .gt_font_normal {
   font-weight: normal;
 }
 
-#lsbtrjdhci .gt_font_bold {
+#jggfiulfjz .gt_font_bold {
   font-weight: bold;
 }
 
-#lsbtrjdhci .gt_font_italic {
+#jggfiulfjz .gt_font_italic {
   font-style: italic;
 }
 
-#lsbtrjdhci .gt_super {
+#jggfiulfjz .gt_super {
   font-size: 65%;
 }
 
-#lsbtrjdhci .gt_footnote_marks {
+#jggfiulfjz .gt_footnote_marks {
   font-style: italic;
+  font-weight: normal;
   font-size: 65%;
 }
 </style>
-<div id="lsbtrjdhci" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;"><table class="gt_table">
+<table class="gt_table">
   
   <thead class="gt_col_headings">
     <tr>
@@ -1057,91 +1060,86 @@ gtsave(top_eu_data_tab, &quot;top_eu_data_tab.png&quot;) # save as img as web_im
     </tr>
   </thead>
   <tbody class="gt_table_body">
-    <tr>
-      <td class="gt_row gt_left">barley</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">1</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">3</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">1</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">4</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">2</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">4</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">3</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">5</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">5</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">7</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">3</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">7</td>
-    </tr>
-    <tr>
-      <td class="gt_row gt_left">beans</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">1</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">0</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">2</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">0</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">3</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">0</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">1</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">0</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">3</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">0</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">4</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">0</td>
-    </tr>
-    <tr>
-      <td class="gt_row gt_left">maize</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">3</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">0</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">5</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">12</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">5</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">16</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">5</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">0</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">3</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">0</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
-      <td class="gt_row gt_right">1</td>
-      <td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
-      <td class="gt_row gt_right">0</td>
-    </tr>
+    <tr><td class="gt_row gt_left">barley</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">1</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">3</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">1</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">3</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">2</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">3</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">3</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">6</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">3</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">6</td></tr>
+    <tr><td class="gt_row gt_left">beans</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">1</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">0</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">2</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">0</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">3</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">0</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">1</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">0</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">2</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">0</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">3</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">0</td></tr>
+    <tr><td class="gt_row gt_left">maize</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">2</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">0</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">11</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">13</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">4</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">0</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">3</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">0</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Flag_of_the_Netherlands.svg/23px-Flag_of_the_Netherlands.svg.png</td>
+<td class="gt_row gt_right">1</td>
+<td class="gt_row gt_left">https://upload.wikimedia.org/wikipedia/en/thumb/a/ae/Flag_of_the_United_Kingdom.svg/23px-Flag_of_the_United_Kingdom.svg.png</td>
+<td class="gt_row gt_right">0</td></tr>
   </tbody>
   
   
-</table></div>
+</table>
+</div>
 </div>
 <div id="table-with-function" class="section level4">
 <h4>Table with function</h4>
