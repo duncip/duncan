@@ -90,7 +90,8 @@ heart_df %>%
   ungroup() %>%
   mutate(n_pct = n / sum(n)) %>%
   ggplot(aes(n_pct)) +
-  geom_bar() +
+  geom_col(aes(target, n_pct)) +
+  geom_text(aes(target, n_pct-0.05, label = round(n_pct,2))) +
   labs(title = "Class balance for target",
        y = NULL,
        x = NULL) +
